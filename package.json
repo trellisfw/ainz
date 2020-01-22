@@ -1,0 +1,18 @@
+{
+  "name": "oada-ainz",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "uservice for automating moving resources via rules",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "Alex <alex@layton.in>",
+  "license": "ISC",
+  "dependencies": {
+    "@oada/oada-cache": "^3.0.1",
+    "bluebird": "^3.5.1",
+    "debug": "^4.1.1",
+    "nconf": "^0.10.0"
+  }
+}
