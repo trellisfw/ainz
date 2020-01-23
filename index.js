@@ -181,6 +181,16 @@ async function runRule ({ data, item, rule, id, conn, token }) {
     return
   }
 
+  if (rule.meta) {
+    // Add meta info to item if supplied
+    trace('Adding to _meta %O', rule.meta)
+    await conn.put({
+      path: `/${data._id}/_meta`,
+      headers: { 'Content-Type': 'application/json' },
+      data: rule.meta
+    })
+  }
+
   // Perform the "move"
   // Use PUT not POST incase same item it matched multiple times
   // TODO: Update status for ainz?

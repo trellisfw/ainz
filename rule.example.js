@@ -1,6 +1,22 @@
-const rule = {
-  list: '/bookmarks/documents',
-  // JSON schema
+/* Copyright 2020 Qlever LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the 'License');
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an 'AS IS' BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+export const rule = {
+  // Where to watch for new links
+  list: '/bookmarks/trellisfw/documents',
+  // JSON schema to check items against
   schema: {
     type: 'object',
     properties: {
@@ -9,5 +25,19 @@ const rule = {
     },
     required: ['foo']
   },
-  destination: '/bookmarks/services/target/tasks'
+  // Where to link items passing the rule
+  destination: '/bookmarks/services/target/tasks',
+  // Optional info to put into _meta of items
+  meta: {
+    // Task queue stuff
+    services: {
+      'trellis-foo': {
+        tasks: {
+          'some-uuid-thingy': {
+            status: 'pending'
+          }
+        }
+      }
+    }
+  }
 }
