@@ -30,7 +30,7 @@ const warn = debug('ainz:warn')
 const error = debug('ainz:error')
 
 // Stuff from config
-const TOKEN = config.get('token') // TODO: Get token properly
+const TOKEN = config.get('token') // TODO: Get token properly (multiple?)
 const DOMAIN = config.get('domain')
 const RULES_PATH = config.get('rules_path')
 const RULES_TREE = config.get('rules_tree')
@@ -66,20 +66,27 @@ async function initialize () {
     data: {}
   })
 
-  // Set up a watch for changes to rules
   try {
-    await conn.get({
+    const { data } = await conn.get({
       path: RULES_PATH,
       tree: RULES_TREE,
+      // Set up a watch for changes to rules
       watch: {
         payload: { conn, token: TOKEN },
         callback: rulesHandler
       }
     })
+    trace('Registering initial rules: %O', data)
+    // Register the pre-existing rules
+    // TODO: Refactor this?
+    const rules = Object.keys(data || {}).filter(r => !r.match(/^_/))
+    await Promise.each(rules, id =>
+      registerRule({ rule: data[id], id, conn, token: TOKEN })
+    )
   } catch (err) {
+    error(err)
     if (err.response.status === 404) {
     } else {
-      error(err)
       throw err
     }
   }
@@ -120,9 +127,9 @@ async function registerRule ({ rule, id, conn, token }) {
       }
     })
   } catch (err) {
+    error(err)
     if (err.response.status === 404) {
     } else {
-      error(err)
       throw err
     }
   }
