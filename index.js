@@ -17,6 +17,7 @@
 
 import Promise from 'bluebird'
 import Ajv from 'ajv'
+import pointer from 'json-pointer'
 import debug from 'debug'
 
 import oada from '@oada/oada-cache'
@@ -34,6 +35,7 @@ const TOKEN = config.get('token') // TODO: Get token properly (multiple?)
 const DOMAIN = config.get('domain')
 const RULES_PATH = config.get('rules_path')
 const RULES_TREE = config.get('rules_tree')
+const LIST_TREE = config.get('list_tree')
 
 // ---------------------------------------------------------------------
 // Setup:
@@ -114,18 +116,28 @@ async function rulesHandler ({ response: { change }, ...ctx }) {
   }
 }
 
+// TODO: Check for unprocessed items when registering rule?
 async function registerRule ({ rule, id, conn, token }) {
   info(`Registering new rule ${id}`)
   trace(rule)
 
   try {
-    await conn.get({
+    let tree = {}
+    pointer.set(tree, rule.list, LIST_TREE)
+    console.log(JSON.stringify(tree))
+    const { data } = await conn.get({
       path: rule.list,
+      // tree,
       watch: {
+        // TODO: precompile schema?
         payload: { rule, id, conn, token },
         callback: ruleHandler
       }
     })
+    trace('TODO Checking initial list items: %O', data)
+    // Get new list items ignoring _ keys
+    // TODO: Refactor this?
+    const items = Object.keys(data || {}).filter(i => !i.match(/^_/))
   } catch (err) {
     error(err)
     if (err.response.status === 404) {

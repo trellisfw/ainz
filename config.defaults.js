@@ -37,5 +37,10 @@ export default {
         }
       }
     }
+  },
+  list_tree: {
+    '*': {
+      _rev: 0
+    }
   }
 }
