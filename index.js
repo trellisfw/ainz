@@ -94,6 +94,7 @@ async function initialize () {
   }
 }
 
+// Run when there is a change to list of rules
 async function rulesHandler ({ response: { change }, ...ctx }) {
   info('Running rules watch handler')
   trace(change)
@@ -147,6 +148,7 @@ async function registerRule ({ rule, id, conn, token }) {
   }
 }
 
+// Run when there is a change to the list a rule applies to
 async function ruleHandler ({ response: { change }, rule, id, conn, token }) {
   info(`Handling rule ${id}`)
   trace('%O', rule)
@@ -161,7 +163,7 @@ async function ruleHandler ({ response: { change }, rule, id, conn, token }) {
       // TODO: Check if rule already ran on this resource
       await Promise.each(items, async item => {
         const { data } = await conn.get({ path: `${rule.list}/${item}` })
-        return runRule({ data, rule, id, conn, token })
+        return runRule({ data, item, rule, id, conn, token })
       })
       break
     case 'delete':
@@ -172,18 +174,19 @@ async function ruleHandler ({ response: { change }, rule, id, conn, token }) {
   }
 }
 
-async function runRule ({ data, rule, id, conn, token }) {
+async function runRule ({ data, item, rule, id, conn, token }) {
   info(`Running rule ${id}`)
 
   if (!ajv.validate(rule.schema, data)) {
     return
   }
 
-  // Perform the "move" (just put a link?)
-  // TODO: Update status?
+  // Perform the "move"
+  // Use PUT not POST incase same item it matched multiple times
+  // TODO: Update status for ainz?
   // TODO: Content-Type??
-  await conn.post({
-    path: rule.destination,
+  await conn.put({
+    path: `${rule.destination}/${item}`,
     headers: { 'Content-Type': 'application/json' },
     data: {
       _id: data._id,
