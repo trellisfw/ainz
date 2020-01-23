@@ -36,6 +36,7 @@ const DOMAIN = config.get('domain')
 const RULES_PATH = config.get('rules_path')
 const RULES_TREE = config.get('rules_tree')
 const LIST_TREE = config.get('list_tree')
+const META_PATH = config.get('meta_path')
 
 // ---------------------------------------------------------------------
 // Setup:
@@ -202,6 +203,15 @@ async function runRule ({ data, item, rule, id, conn, token }) {
       _id: data._id,
       _rev: data._rev
     }
+  })
+
+  // Record in _meta that this rule ran on this item
+  trace(`Marking rule ${id} completed`)
+  await conn.put({
+    path: `/${data._id}/_meta${META_PATH}/${id}`,
+    headers: { 'Content-Type': 'application/json' },
+    // Record what _rev was when we ran
+    data: { _rev: data._rev }
   })
 }
 
