@@ -18,12 +18,16 @@
 import Promise from 'bluebird'
 import Ajv from 'ajv'
 import pointer from 'json-pointer'
+import mutex from 'async-mutex'
 import debug from 'debug'
 
 import oada from '@oada/oada-cache'
 // const { getToken } = require('/code/winfield-shared/service-user')
 
 import config from './config.js'
+
+// Because import is not right
+const { Mutex } = mutex
 
 const trace = debug('ainz:trace')
 const info = debug('ainz:info')
@@ -123,16 +127,17 @@ async function registerRule ({ rule, id, conn, token }) {
   info(`Registering new rule ${id}`)
   trace(rule)
 
+  const mutexes = {}
+
   try {
-    const tree = {}
-    pointer.set(tree, rule.list, LIST_TREE)
-    console.log(JSON.stringify(tree))
+    // const tree = {}
+    // pointer.set(tree, rule.list, LIST_TREE)
     const { data } = await conn.get({
       path: rule.list,
       // tree,
       watch: {
         // TODO: precompile schema?
-        payload: { rule, id, conn, token },
+        payload: { rule, id, mutexes, conn, token },
         callback: ruleHandler
       }
     })
@@ -150,7 +155,14 @@ async function registerRule ({ rule, id, conn, token }) {
 }
 
 // Run when there is a change to the list a rule applies to
-async function ruleHandler ({ response: { change }, rule, id, conn, token }) {
+async function ruleHandler ({
+  response: { change },
+  rule,
+  id,
+  mutexes,
+  conn,
+  token
+}) {
   info(`Handling rule ${id}`)
   trace('%O', rule)
   trace(change)
@@ -162,19 +174,26 @@ async function ruleHandler ({ response: { change }, rule, id, conn, token }) {
   switch (type) {
     case 'merge':
       await Promise.each(items, async item => {
+        // Mutex to prevent concurrently running rule on same item
+        const mutex = (mutexes[item] = mutexes[item] || new Mutex())
+
         // Check if rule already ran on this resource
         // TODO: Run again if _rev has increased?
+        const release = await mutex.acquire()
         return Promise.resolve(
           conn.get({ path: `${rule.list}/${item}/_meta${META_PATH}/${id}` })
-        ).catch(
-          // Catch 404 errors only
-          e => e.response && e.response.status === 404,
-          async () => {
-            // 404 Means this rule has not been run on item yet
-            const { data } = await conn.get({ path: `${rule.list}/${item}` })
-            return runRule({ data, item, rule, id, conn, token })
-          }
         )
+          .catch(
+            // Catch 404 errors only
+            e => e.response && e.response.status === 404,
+            async () => {
+              // 404 Means this rule has not been run on item yet
+              const { data } = await conn.get({ path: `${rule.list}/${item}` })
+              return runRule({ data, item, rule, id, conn, token })
+            }
+          )
+          .finally(release)
+          .finally(() => delete mutexes[item])
       })
       break
     case 'delete':

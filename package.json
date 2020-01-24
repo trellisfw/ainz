@@ -12,6 +12,7 @@
   "dependencies": {
     "@oada/oada-cache": "^3.0.1",
     "ajv": "^6.11.0",
+    "async-mutex": "^0.1.4",
     "bluebird": "^3.5.1",
     "debug": "^4.1.1",
     "json-pointer": "^0.6.0",
