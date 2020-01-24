@@ -124,7 +124,7 @@ async function registerRule ({ rule, id, conn, token }) {
   trace(rule)
 
   try {
-    let tree = {}
+    const tree = {}
     pointer.set(tree, rule.list, LIST_TREE)
     console.log(JSON.stringify(tree))
     const { data } = await conn.get({
@@ -136,10 +136,10 @@ async function registerRule ({ rule, id, conn, token }) {
         callback: ruleHandler
       }
     })
-    trace('TODO Checking initial list items: %O', data)
+    trace('NYI TODO Checking initial list items: %O', data)
     // Get new list items ignoring _ keys
     // TODO: Refactor this?
-    const items = Object.keys(data || {}).filter(i => !i.match(/^_/))
+    // const items = Object.keys(data || {}).filter(i => !i.match(/^_/))
   } catch (err) {
     error(err)
     if (err.response.status === 404) {
@@ -161,10 +161,20 @@ async function ruleHandler ({ response: { change }, rule, id, conn, token }) {
   const items = Object.keys(data || {}).filter(i => !i.match(/^_/))
   switch (type) {
     case 'merge':
-      // TODO: Check if rule already ran on this resource
       await Promise.each(items, async item => {
-        const { data } = await conn.get({ path: `${rule.list}/${item}` })
-        return runRule({ data, item, rule, id, conn, token })
+        // Check if rule already ran on this resource
+        // TODO: Run again if _rev has increased?
+        return Promise.resolve(
+          conn.get({ path: `${rule.list}/${item}/_meta${META_PATH}/${id}` })
+        ).catch(
+          // Catch 404 errors only
+          e => e.response && e.response.status === 404,
+          async () => {
+            // 404 Means this rule has not been run on item yet
+            const { data } = await conn.get({ path: `${rule.list}/${item}` })
+            return runRule({ data, item, rule, id, conn, token })
+          }
+        )
       })
       break
     case 'delete':
@@ -176,7 +186,7 @@ async function ruleHandler ({ response: { change }, rule, id, conn, token }) {
 }
 
 async function runRule ({ data, item, rule, id, conn, token }) {
-  info(`Running rule ${id}`)
+  info(`Running rule ${id} on ${item}`)
 
   if (!ajv.validate(rule.schema, data)) {
     return
