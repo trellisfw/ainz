@@ -15,7 +15,7 @@
 
 export default {
   domain: 'proxy',
-  token: 'def',
+  token: 'god',
   meta_path: '/services/ainz/rules',
   rules_path: '/bookmarks/services/ainz/rules',
   rules_tree: {
