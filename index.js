@@ -18,7 +18,7 @@
 import Promise from 'bluebird'
 import Ajv from 'ajv'
 import pointer from 'json-pointer'
-import mutex from 'async-mutex'
+import pqueue from 'p-queue'
 import debug from 'debug'
 
 import oada from '@oada/oada-cache'
@@ -27,7 +27,7 @@ import oada from '@oada/oada-cache'
 import config from './config.js'
 
 // Because import is not right
-const { Mutex } = mutex
+const { default: PQueue } = pqueue
 
 const trace = debug('ainz:trace')
 const info = debug('ainz:info')
@@ -127,7 +127,8 @@ async function registerRule ({ rule, id, conn, token }) {
   info(`Registering new rule ${id}`)
   trace(rule)
 
-  const mutexes = {}
+  // TODO: Fix queue to be by rule/item and not just rule
+  const queue = new PQueue({ concurrency: 1 })
 
   try {
     // const tree = {}
@@ -137,10 +138,11 @@ async function registerRule ({ rule, id, conn, token }) {
       // tree,
       watch: {
         // TODO: precompile schema?
-        payload: { rule, id, mutexes, conn, token },
-        callback: ruleHandler
+        payload: { rule, id, conn, token },
+        callback: ctx => queue.add(() => ruleHandler(ctx))
       }
     })
+
     trace('NYI TODO Checking initial list items: %O', data)
     // Get new list items ignoring _ keys
     // TODO: Refactor this?
@@ -159,7 +161,7 @@ async function ruleHandler ({
   response: { change },
   rule,
   id,
-  mutexes,
+  mutex,
   conn,
   token
 }) {
@@ -174,26 +176,19 @@ async function ruleHandler ({
   switch (type) {
     case 'merge':
       await Promise.each(items, async item => {
-        // Mutex to prevent concurrently running rule on same item
-        const mutex = (mutexes[item] = mutexes[item] || new Mutex())
-
-        // Check if rule already ran on this resource
-        // TODO: Run again if _rev has increased?
-        const release = await mutex.acquire()
         return Promise.resolve(
+          // Check if rule already ran on this resource
+          // TODO: Run again if _rev has increased?
           conn.get({ path: `${rule.list}/${item}/_meta${META_PATH}/${id}` })
+        ).catch(
+          // Catch 404 errors only
+          e => e.response && e.response.status === 404,
+          async () => {
+            // 404 Means this rule has not been run on item yet
+            const { data } = await conn.get({ path: `${rule.list}/${item}` })
+            return runRule({ data, item, rule, id, conn, token })
+          }
         )
-          .catch(
-            // Catch 404 errors only
-            e => e.response && e.response.status === 404,
-            async () => {
-              // 404 Means this rule has not been run on item yet
-              const { data } = await conn.get({ path: `${rule.list}/${item}` })
-              return runRule({ data, item, rule, id, conn, token })
-            }
-          )
-          .finally(release)
-          .finally(() => delete mutexes[item])
       })
       break
     case 'delete':
@@ -206,6 +201,7 @@ async function ruleHandler ({
 
 async function runRule ({ data, item, rule, id, conn, token }) {
   info(`Running rule ${id} on ${item}`)
+  trace(data)
 
   if (!ajv.validate(rule.schema, data)) {
     return
@@ -223,8 +219,8 @@ async function runRule ({ data, item, rule, id, conn, token }) {
 
   // Perform the "move"
   // Use PUT not POST incase same item it matched multiple times
-  // TODO: Update status for ainz?
   // TODO: Content-Type??
+  // TODO: How to use tree param to do deep PUT??
   await conn.put({
     path: `${rule.destination}/${item}`,
     headers: { 'Content-Type': 'application/json' },

@@ -5,17 +5,21 @@
   "description": "uservice for automating moving resources via rules",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "watch": "nodemon npm start"
   },
   "author": "Alex <alex@layton.in>",
   "license": "ISC",
   "dependencies": {
     "@oada/oada-cache": "^3.0.1",
     "ajv": "^6.11.0",
-    "async-mutex": "^0.1.4",
     "bluebird": "^3.5.1",
     "debug": "^4.1.1",
     "json-pointer": "^0.6.0",
-    "nconf": "^0.10.0"
+    "nconf": "^0.10.0",
+    "p-queue": "^6.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.2"
   }
 }
