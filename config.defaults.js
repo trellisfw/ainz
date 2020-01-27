@@ -44,7 +44,11 @@ export default {
     _rev: 0,
     '*': {
       _type: 'application/json',
-      _rev: 0
+      _rev: 0,
+      '*': {
+        _type: 'application/json',
+        _rev: 0
+      }
     }
   }
 }
