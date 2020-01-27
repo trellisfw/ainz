@@ -40,7 +40,10 @@ export default {
     }
   },
   list_tree: {
+    _type: 'application/json',
+    _rev: 0,
     '*': {
+      _type: 'application/json',
       _rev: 0
     }
   }

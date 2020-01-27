@@ -131,11 +131,8 @@ async function registerRule ({ rule, id, conn, token }) {
   const queue = new PQueue({ concurrency: 1 })
 
   try {
-    // const tree = {}
-    // pointer.set(tree, rule.list, LIST_TREE)
     const { data } = await conn.get({
       path: rule.list,
-      // tree,
       watch: {
         // TODO: precompile schema?
         payload: { rule, id, conn, token },
@@ -176,16 +173,21 @@ async function ruleHandler ({
   switch (type) {
     case 'merge':
       await Promise.each(items, async item => {
+        const path = `${rule.list}/${item}`
         return Promise.resolve(
           // Check if rule already ran on this resource
           // TODO: Run again if _rev has increased?
-          conn.get({ path: `${rule.list}/${item}/_meta${META_PATH}/${id}` })
+          conn.get({ path: `${path}/_meta${META_PATH}/${id}` })
         ).catch(
           // Catch 404 errors only
           e => e.response && e.response.status === 404,
           async () => {
             // 404 Means this rule has not been run on item yet
-            const { data } = await conn.get({ path: `${rule.list}/${item}` })
+            const tree = {}
+            pointer.set(tree, path, LIST_TREE)
+            trace(JSON.stringify(tree))
+            const { data } = await conn.get({ path, tree })
+
             return runRule({ data, item, rule, id, conn, token })
           }
         )
