@@ -205,8 +205,13 @@ async function runRule ({ data, item, rule, id, conn, token }) {
   info(`Running rule ${id} on ${item}`)
   trace(data)
 
-  if (!ajv.validate(rule.schema, data)) {
-    return
+  try {
+    if (!ajv.validate(rule.schema, data)) {
+      return
+    }
+  } catch (err) {
+    error('schema %O', rule.schema)
+    throw err
   }
 
   if (rule.meta) {
