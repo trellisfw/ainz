@@ -131,11 +131,11 @@ async function registerRule ({ rule, id, conn, token }) {
   const queue = new PQueue({ concurrency: 1 })
 
   try {
+    const validate = ajv.compile(rule.schema)
     const { data } = await conn.get({
       path: rule.list,
       watch: {
-        // TODO: precompile schema?
-        payload: { rule, id, conn, token },
+        payload: { rule, validate, id, conn, token },
         callback: ctx => queue.add(() => ruleHandler(ctx))
       }
     })
@@ -157,6 +157,7 @@ async function registerRule ({ rule, id, conn, token }) {
 async function ruleHandler ({
   response: { change },
   rule,
+  validate,
   id,
   mutex,
   conn,
@@ -185,10 +186,9 @@ async function ruleHandler ({
             // 404 Means this rule has not been run on item yet
             const tree = {}
             pointer.set(tree, path, LIST_TREE)
-            trace(JSON.stringify(tree))
             const { data } = await conn.get({ path, tree })
 
-            return runRule({ data, item, rule, id, conn, token })
+            return runRule({ data, validate, item, rule, id, conn, token })
           }
         )
       })
@@ -201,12 +201,12 @@ async function ruleHandler ({
   }
 }
 
-async function runRule ({ data, item, rule, id, conn, token }) {
+async function runRule ({ data, validate, item, rule, id, conn, token }) {
   info(`Running rule ${id} on ${item}`)
   trace(data)
 
   try {
-    if (!ajv.validate(rule.schema, data)) {
+    if (!validate(data)) {
       return
     }
   } catch (err) {
