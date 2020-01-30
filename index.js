@@ -58,10 +58,9 @@ function fixBody (body) {
 async function initialize () {
   // Connect to oada
   const conn = await oada.default.connect({
-    // Why do I have to say default??
     domain: 'https://' + DOMAIN,
-    token: TOKEN,
-    cache: false
+    token: TOKEN
+    // cache: false
   })
   // await conn.resetCache()
 
@@ -175,6 +174,7 @@ async function ruleHandler ({
     case 'merge':
       await Promise.each(items, async item => {
         const path = `${rule.list}/${item}`
+        // TODO: Get body and meta at once?
         return Promise.resolve(
           // Check if rule already ran on this resource
           // TODO: Run again if _rev has increased?
