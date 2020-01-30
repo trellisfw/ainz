@@ -39,10 +39,11 @@ export default {
       }
     }
   },
+  // TODO: How to generalize this?? Include it in the rule??
   list_tree: {
     _type: 'application/json',
     _rev: 0,
-    '*': {
+    audits: {
       _type: 'application/json',
       _rev: 0,
       '*': {
