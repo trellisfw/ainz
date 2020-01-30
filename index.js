@@ -163,7 +163,7 @@ async function ruleHandler ({
   conn,
   token
 }) {
-  info(`Handling rule ${id}`)
+  trace(`Handling rule ${id}`)
   trace('%O', rule)
   trace(change)
 
@@ -202,7 +202,7 @@ async function ruleHandler ({
 }
 
 async function runRule ({ data, validate, item, rule, id, conn, token }) {
-  info(`Running rule ${id} on ${item}`)
+  trace(`Testing rule ${id} on ${item}`)
   trace(data)
 
   try {
@@ -213,6 +213,8 @@ async function runRule ({ data, validate, item, rule, id, conn, token }) {
     error('schema %O', rule.schema)
     throw err
   }
+
+  info(`Running rule ${id} on ${item}`)
 
   if (rule.meta) {
     // Add meta info to item if supplied
