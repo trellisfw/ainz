@@ -59,8 +59,8 @@ async function initialize () {
   // Connect to oada
   const conn = await oada.default.connect({
     domain: 'https://' + DOMAIN,
-    token: TOKEN
-    // cache: false
+    token: TOKEN,
+    cache: false
   })
   // await conn.resetCache()
 
