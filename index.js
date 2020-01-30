@@ -187,6 +187,9 @@ async function ruleHandler ({
             const tree = {}
             pointer.set(tree, path, LIST_TREE)
             const { data } = await conn.get({ path, tree })
+            // TODO: Only fetch data/meta once
+            const { data: meta } = await conn.get({ path: `${path}/_meta` })
+            data._meta = meta
 
             return runRule({ data, validate, item, rule, id, conn, token })
           }
