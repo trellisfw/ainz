@@ -237,8 +237,8 @@ async function runRule ({ data, validate, item, rule, id, conn, token }) {
     path: `${rule.destination}/${item}`,
     headers: { 'Content-Type': 'application/json' },
     data: {
-      _id: data._id,
-      _rev: data._rev
+      _id: data._id
+      // _rev: data._rev
     }
   })
 
