@@ -131,18 +131,20 @@ async function registerRule ({ rule, id, conn, token }) {
 
   try {
     const validate = ajv.compile(rule.schema)
+    const payload = { rule, validate, id, conn, token }
     const { data } = await conn.get({
       path: rule.list,
       watch: {
-        payload: { rule, validate, id, conn, token },
+        payload,
         callback: ctx => queue.add(() => ruleHandler(ctx))
       }
     })
 
-    trace('NYI TODO Checking initial list items: %O', data)
-    // Get new list items ignoring _ keys
-    // TODO: Refactor this?
-    // const items = Object.keys(data || {}).filter(i => !i.match(/^_/))
+    // TODO: How to make OADA cache resume from given rev?
+    trace('Checking initial list items: %O', data)
+    // Just send fake change for now
+    const change = { type: 'merge', body: data }
+    queue.add(() => ruleHandler({ response: { change }, ...payload }))
   } catch (err) {
     error(err)
     if (err.response.status === 404) {
@@ -158,7 +160,6 @@ async function ruleHandler ({
   rule,
   validate,
   id,
-  mutex,
   conn,
   token
 }) {

@@ -1,4 +1,4 @@
-version: "3"
+version: '3'
 
 services:
   ##########################################
@@ -14,7 +14,6 @@ services:
   admin:
     volumes:
       - ./services-available/ainz:/code/ainz
-
 
   ###############################################
   # This service's definition:
@@ -38,4 +37,3 @@ services:
       - NODE_TLS_REJECT_UNAUTHORIZED
       - NODE_ENV=${NODE_ENV:-development}
       - DEBUG
-
