@@ -57,7 +57,7 @@ function fixBody (body) {
 
 async function initialize () {
   // Connect to oada
-  const conn = await oada.default.connect({
+  const conn = await oada.connect({
     domain: 'https://' + DOMAIN,
     token: TOKEN,
     cache: false
@@ -192,7 +192,12 @@ async function ruleHandler ({
             const { data: meta } = await conn.get({ path: `${path}/_meta` })
             data._meta = meta
 
-            return runRule({ data, validate, item, rule, id, conn, token })
+            try {
+              await runRule({ data, validate, item, rule, id, conn, token })
+            } catch (err) {
+              // Catch error so we can still try other items
+              error(`Error running rule ${id}: %O`, err)
+            }
           }
         )
       })
