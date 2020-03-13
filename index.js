@@ -86,7 +86,7 @@ async function initialize () {
     // Register the pre-existing rules
     // TODO: Refactor this?
     const rules = Object.keys(data || {}).filter(r => !r.match(/^_/))
-    await Promise.each(rules, id =>
+    await Promise.map(rules, id =>
       registerRule({ rule: data[id], id, conn, token: TOKEN })
     )
   } catch (err) {
@@ -109,7 +109,7 @@ async function rulesHandler ({ response: { change }, ...ctx }) {
   const rules = Object.keys(data || {}).filter(r => !r.match(/^_/))
   switch (type) {
     case 'merge':
-      await Promise.each(rules, id =>
+      await Promise.map(rules, id =>
         registerRule({ rule: data[id], id, ...ctx })
       )
       break
@@ -173,7 +173,7 @@ async function ruleHandler ({
   const items = Object.keys(data || {}).filter(i => !i.match(/^_/))
   switch (type) {
     case 'merge':
-      await Promise.each(items, async item => {
+      await Promise.map(items, async item => {
         const path = `${rule.list}/${item}`
         // TODO: Get body and meta at once?
         return Promise.resolve(
