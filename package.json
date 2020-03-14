@@ -1,7 +1,7 @@
 {
   "name": "oada-ainz",
   "type": "module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "uservice for automating moving resources via rules",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
   "author": "Alex <alex@layton.in>",
   "license": "ISC",
   "dependencies": {
-    "@oada/oada-cache": "^3.0.1",
+    "@oada/oada-cache": "^3.1.2",
     "ajv": "^6.11.0",
     "bluebird": "^3.5.1",
     "debug": "^4.1.1",
