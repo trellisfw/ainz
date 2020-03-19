@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-export default {
+module.exports = {
   domain: 'proxy',
   token: 'god',
   meta_path: '/services/ainz/rules',

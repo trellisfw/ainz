@@ -18,16 +18,19 @@
 import Promise from 'bluebird'
 import Ajv from 'ajv'
 import pointer from 'json-pointer'
-import pqueue from 'p-queue'
+import PQueue from 'p-queue'
 import debug from 'debug'
+import { JSONSchema8 as Schema } from 'jsonschema8'
 
-import oada from '@oada/oada-cache'
+import oada, {
+  OADAChangeResponse,
+  OADAConnection,
+  OADAResponse
+} from '@oada/oada-cache'
 // const { getToken } = require('/code/winfield-shared/service-user')
 
+// @ts-ignore
 import config from './config.js'
-
-// Because import is not right
-const { default: PQueue } = pqueue
 
 const trace = debug('ainz:trace')
 const info = debug('ainz:info')
@@ -51,8 +54,14 @@ const META_PATH = config.get('meta_path')
 const ajv = new Ajv()
 
 // TODO: Hopefully this bug in oada-cache gets fixed
-function fixBody (body) {
-  return Object.prototype.hasOwnProperty.call(body, '_rev') ? body : body.data
+type Body<T> = { _rev: string; _id: string } & T
+type WeirdBody<T> = { data: Body<T> }
+type ReturnBody<T> = Body<T> | WeirdBody<T>
+function isWeird<T> (body: ReturnBody<T>): body is WeirdBody<T> {
+  return (body as Body<T>)._rev === undefined
+}
+function fixBody<T> (body: ReturnBody<T>): Body<T> {
+  return isWeird(body) ? body.data : body
 }
 
 async function initialize () {
@@ -98,8 +107,33 @@ async function initialize () {
   }
 }
 
+type Rule = {
+  list: string
+  destination: string
+  schema: Schema
+  meta?: object
+}
+// Define "context" rules are registered with
+type RuleCtx = {
+  rule: Rule
+  id: string
+  conn: OADAConnection
+  token: string
+}
+// Define "thing" a rule runs on
+type RuleItem = {
+  data: OADAResponse['data']
+  item: string
+}
+// Define "context" rules are run with
+interface RuleRunCtx extends RuleCtx {
+  validate: Ajv.ValidateFunction
+}
 // Run when there is a change to list of rules
-async function rulesHandler ({ response: { change }, ...ctx }) {
+async function rulesHandler ({
+  response: { change },
+  ...ctx
+}: OADAChangeResponse & RuleCtx) {
   info('Running rules watch handler')
   trace(change)
 
@@ -122,7 +156,7 @@ async function rulesHandler ({ response: { change }, ...ctx }) {
 }
 
 // TODO: Check for unprocessed items when registering rule?
-async function registerRule ({ rule, id, conn, token }) {
+async function registerRule ({ rule, id, conn, token }: RuleCtx) {
   info(`Registering new rule ${id}`)
   trace(rule)
 
@@ -143,7 +177,7 @@ async function registerRule ({ rule, id, conn, token }) {
     // TODO: How to make OADA cache resume from given rev?
     trace('Checking initial list items: %O', data)
     // Just send fake change for now
-    const change = { type: 'merge', body: data }
+    const change = { type: <const>'merge', body: data }
     queue.add(() => ruleHandler({ response: { change }, ...payload }))
   } catch (err) {
     error(err)
@@ -162,7 +196,7 @@ async function ruleHandler ({
   id,
   conn,
   token
-}) {
+}: OADAChangeResponse & Exclude<RuleRunCtx, RuleItem>) {
   trace(`Handling rule ${id}`)
   trace('%O', rule)
   trace(change)
@@ -182,7 +216,8 @@ async function ruleHandler ({
           conn.get({ path: `${path}/_meta${META_PATH}/${id}` })
         ).catch(
           // Catch 404 errors only
-          e => e.response && e.response.status === 404,
+          (e: { response: OADAResponse }) =>
+            e.response && e.response.status === 404,
           async () => {
             // 404 Means this rule has not been run on item yet
             const tree = {}
@@ -210,7 +245,15 @@ async function ruleHandler ({
   }
 }
 
-async function runRule ({ data, validate, item, rule, id, conn, token }) {
+async function runRule ({
+  data,
+  validate,
+  item,
+  rule,
+  id,
+  conn,
+  token
+}: RuleRunCtx & RuleItem) {
   trace(`Testing rule ${id} on ${item}`)
   trace(data)
 
