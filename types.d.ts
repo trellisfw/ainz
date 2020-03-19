@@ -13,7 +13,7 @@ declare module '@oada/oada-cache' {
     ): Promise<OADAResponse>
     put(config: OADARequestConfig): Promise<OADAResponse>
     post(config: OADARequestConfig): Promise<OADAResponse>
-    del(
+    delete(
       config: OADARequestConfig & { unwatch?: boolean }
     ): Promise<OADAResponse>
   }

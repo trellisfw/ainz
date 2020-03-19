@@ -25,7 +25,8 @@ import { JSONSchema8 as Schema } from 'jsonschema8'
 import oada, {
   OADAChangeResponse,
   OADAConnection,
-  OADAResponse
+  OADAResponse,
+  OADATree
 } from '@oada/oada-cache'
 // const { getToken } = require('/code/winfield-shared/service-user')
 
@@ -38,12 +39,12 @@ const warn = debug('ainz:warn')
 const error = debug('ainz:error')
 
 // Stuff from config
-const TOKEN = config.get('token') // TODO: Get token properly (multiple?)
-const DOMAIN = config.get('domain')
-const RULES_PATH = config.get('rules_path')
-const RULES_TREE = config.get('rules_tree')
-const LIST_TREE = config.get('list_tree')
-const META_PATH = config.get('meta_path')
+const TOKEN: string = config.get('token') // TODO: Get token properly (multiple?)
+const DOMAIN: string = config.get('domain')
+const RULES_PATH: string = config.get('rules_path')
+const RULES_TREE: OADATree = config.get('rules_tree')
+const LIST_TREE: OADATree = config.get('list_tree')
+const META_PATH: string = config.get('meta_path')
 
 // ---------------------------------------------------------------------
 // Setup:
@@ -118,7 +119,7 @@ type Rule = {
 }
 // Define "context" rules are registered with
 type RuleCtx = {
-  rule: Rule
+  rule: Rule | null
   id: string
   conn: OADAConnection
   token: string
@@ -130,6 +131,7 @@ type RuleItem = {
 }
 // Define "context" rules are run with
 interface RuleRunCtx extends RuleCtx {
+  rule: Rule
   validate: Ajv.ValidateFunction
 }
 // Run when there is a change to list of rules
@@ -146,11 +148,21 @@ async function rulesHandler ({
   const rules = Object.keys(data || {}).filter(r => !r.match(/^_/))
   switch (type) {
     case 'merge':
-      await Promise.map(rules, id =>
-        registerRule({ rule: data[id], id, ...ctx })
-      )
+      await Promise.map(rules, async id => {
+        try {
+          // Fetch entire rule (not just changed part)
+          const path = `${RULES_PATH}/${id}`
+          const { data } = await ctx.conn.get({ path })
+          const rule = fixBody(data)
+
+          registerRule({ rule, id, ...ctx })
+        } catch (err) {
+          error(`Error registering rule ${id}: %O`, err)
+        }
+      })
       break
     case 'delete':
+      // Unregister the deleted rule
       await Promise.map(rules, id => registerRule({ rule: null, id, ...ctx }))
       break
     default:
@@ -164,7 +176,7 @@ async function registerRule ({ rule, id, conn, token }: RuleCtx) {
   const oldwatch = rules[id]
   if (oldwatch) {
     info(`Unregistering previous rule ${id}`)
-    await conn.del({ path: oldwatch, unwatch: true })
+    await conn.delete({ path: oldwatch, unwatch: true })
     delete rules[id]
   }
   if (!rule) {
@@ -199,7 +211,7 @@ async function registerRule ({ rule, id, conn, token }: RuleCtx) {
     queue.add(() => ruleHandler({ response: { change }, ...payload }))
   } catch (err) {
     error(err)
-    if (err.response.status === 404) {
+    if (err?.response?.status === 404) {
     } else {
       throw err
     }
