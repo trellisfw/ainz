@@ -64,6 +64,9 @@ function fixBody<T> (body: ReturnBody<T>): Body<T> {
   return isWeird(body) ? body.data : body
 }
 
+// TODO: better way to keep track of registered rules?
+const rules: { [key: string]: string } = {}
+
 async function initialize () {
   // Connect to oada
   const conn = await oada.connect({
@@ -148,7 +151,7 @@ async function rulesHandler ({
       )
       break
     case 'delete':
-      // TODO: Handle deleting rules
+      await Promise.map(rules, id => registerRule({ rule: null, id, ...ctx }))
       break
     default:
       warn(`Ignoring uknown change type ${type} to rules`)
@@ -157,6 +160,18 @@ async function rulesHandler ({
 
 // TODO: Check for unprocessed items when registering rule?
 async function registerRule ({ rule, id, conn, token }: RuleCtx) {
+  // Remove previous version of this rule if it existed already
+  const oldwatch = rules[id]
+  if (oldwatch) {
+    info(`Unregistering previous rule ${id}`)
+    await conn.del({ path: oldwatch, unwatch: true })
+    delete rules[id]
+  }
+  if (!rule) {
+    // No new rule to register
+    return
+  }
+
   info(`Registering new rule ${id}`)
   trace(rule)
 
@@ -173,6 +188,9 @@ async function registerRule ({ rule, id, conn, token }: RuleCtx) {
         callback: ctx => queue.add(() => ruleHandler(ctx))
       }
     })
+
+    // Keep track of this rule being registered
+    rules[id] = rule.list
 
     // TODO: How to make OADA cache resume from given rev?
     trace('Checking initial list items: %O', data)
