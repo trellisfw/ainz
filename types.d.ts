@@ -16,6 +16,7 @@ declare module '@oada/oada-cache' {
     delete(
       config: OADARequestConfig & { unwatch?: boolean }
     ): Promise<OADAResponse>
+    disconnect(): Promise<void>
   }
 
   export function connect (options: Options): Promise<OADAConnection>

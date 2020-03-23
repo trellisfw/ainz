@@ -20,7 +20,7 @@ import Ajv from 'ajv'
 import pointer from 'json-pointer'
 import PQueue from 'p-queue'
 import debug from 'debug'
-import { JSONSchema8 as Schema } from 'jsonschema8'
+import type { JSONSchema8 as Schema } from 'jsonschema8'
 
 import oada, {
   OADAChangeResponse,
@@ -65,9 +65,6 @@ function fixBody<T> (body: ReturnBody<T>): Body<T> {
   return isWeird(body) ? body.data : body
 }
 
-// TODO: better way to keep track of registered rules?
-const rules: { [key: string]: string } = {}
-
 async function initialize () {
   // Connect to oada
   const conn = await oada.connect({
@@ -92,7 +89,12 @@ async function initialize () {
       // Set up a watch for changes to rules
       watch: {
         payload: { conn, token: TOKEN },
-        callback: rulesHandler
+        // TODO: Actually handle changes to rules when watch/unwatch works
+        callback: async () => {
+          await conn.disconnect()
+          await initialize()
+        }
+        // callback: rulesHandler
       }
     })
     trace('Registering initial rules: %O', data)
@@ -170,15 +172,8 @@ async function rulesHandler ({
   }
 }
 
-// TODO: Check for unprocessed items when registering rule?
 async function registerRule ({ rule, id, conn, token }: RuleCtx) {
-  // Remove previous version of this rule if it existed already
-  const oldwatch = rules[id]
-  if (oldwatch) {
-    info(`Unregistering previous rule ${id}`)
-    await conn.delete({ path: oldwatch, unwatch: true })
-    delete rules[id]
-  }
+  // TODO: Remove previous version of this rule if it existed already
   if (!rule) {
     // No new rule to register
     return
@@ -200,9 +195,6 @@ async function registerRule ({ rule, id, conn, token }: RuleCtx) {
         callback: ctx => queue.add(() => ruleHandler(ctx))
       }
     })
-
-    // Keep track of this rule being registered
-    rules[id] = rule.list
 
     // TODO: How to make OADA cache resume from given rev?
     trace('Checking initial list items: %O', data)
