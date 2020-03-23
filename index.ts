@@ -20,6 +20,7 @@ import Ajv from 'ajv'
 import pointer from 'json-pointer'
 import PQueue from 'p-queue'
 import debug from 'debug'
+// prettier-ignore
 import type { JSONSchema8 as Schema } from 'jsonschema8'
 
 import oada, {
@@ -100,7 +101,7 @@ async function initialize () {
     trace('Registering initial rules: %O', data)
     // Register the pre-existing rules
     // TODO: Refactor this?
-    const rules = Object.keys(data || {}).filter(r => !r.match(/^_/))
+    const rules = Object.keys(data ?? {}).filter(r => !r.match(/^_/))
     await Promise.map(rules, id =>
       registerRule({ rule: data[id], id, conn, token: TOKEN })
     )
@@ -147,7 +148,7 @@ async function rulesHandler ({
   const { type, body } = change
   const data = fixBody(body)
   // Get new rules ignoring _ keys
-  const rules = Object.keys(data || {}).filter(r => !r.match(/^_/))
+  const rules = Object.keys(data ?? {}).filter(r => !r.match(/^_/))
   switch (type) {
     case 'merge':
       await Promise.map(rules, async id => {
@@ -226,7 +227,7 @@ async function ruleHandler ({
   const { type, body } = change
   const data = fixBody(body)
   // Get new list items ignoring _ keys
-  const items = Object.keys(data || {}).filter(i => !i.match(/^_/))
+  const items = Object.keys(data ?? {}).filter(i => !i.match(/^_/))
   switch (type) {
     case 'merge':
       await Promise.map(items, async item => {
@@ -238,8 +239,7 @@ async function ruleHandler ({
           conn.get({ path: `${path}/_meta${META_PATH}/${id}` })
         ).catch(
           // Catch 404 errors only
-          (e: { response: OADAResponse }) =>
-            e.response && e.response.status === 404,
+          (e: { response: OADAResponse }) => e?.response?.status === 404,
           async () => {
             // 404 Means this rule has not been run on item yet
             const tree = {}
