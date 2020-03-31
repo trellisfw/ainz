@@ -4,18 +4,21 @@ declare module '@oada/oada-cache' {
   export type Options = {
     domain: string
     token: string
-    cache?: boolean
+    cache?: boolean | { name: string }
+    websocket?: boolean
   }
 
   export interface OADAConnection {
-    get(
-      config: OADARequestConfig & { watch?: OADAWatchConfig }
+    get<T>(
+      config: OADARequestConfig & { watch?: OADAWatchConfig<T> }
     ): Promise<OADAResponse>
+    watch<T>(
+      config: OADARequestConfig & OADAWatchConfig<T>
+    ): Promise<OADAResponse>
+    unwatch<T>(callback: OADAWatchConfig<T>['callback']): Promise<void>
     put(config: OADARequestConfig): Promise<OADAResponse>
     post(config: OADARequestConfig): Promise<OADAResponse>
-    delete(
-      config: OADARequestConfig & { unwatch?: boolean }
-    ): Promise<OADAResponse>
+    delete(config: OADARequestConfig): Promise<OADAResponse>
     disconnect(): Promise<void>
   }
 
@@ -32,9 +35,9 @@ declare module '@oada/oada-cache' {
     tree?: OADATree
   }
 
-  export interface OADAWatchConfig {
-    payload?: any
-    callback: (ctx: OADAChangeResponse & OADAWatchConfig['payload']) => any
+  export interface OADAWatchConfig<T> {
+    payload?: T
+    callback: (ctx: OADAChangeResponse & T) => any
   }
 
   export interface OADAResponse extends AxiosResponse {}

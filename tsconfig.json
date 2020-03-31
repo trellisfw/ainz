@@ -1,17 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2018",
+    "target": "ES2019",
     "strict": true,
-    "esModuleInterop": true,
     "moduleResolution": "node",
-    "lib": ["ES2018"],
-    "sourceMap": true,
-    "outDir": "dist",
-    "baseUrl": ".",
-    "paths": {
-      "*": ["node_modules/*"]
-    }
-  },
-  "include": ["*.ts"],
-  "exclude": ["node_modules"]
+    "esModuleInterop": true,
+    "lib": ["ES2019"]
+  }
 }
