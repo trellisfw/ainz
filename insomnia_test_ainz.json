@@ -1,0 +1,407 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2020-01-26T20:33:14.653Z",
+  "__export_source": "insomnia.desktop.app:v7.0.6",
+  "resources": [
+    {
+      "_id": "req_ae9116e968994ad5a9e0951d8a5727e5",
+      "authentication": { "token": "god", "type": "bearer" },
+      "body": { "mimeType": "application/json", "text": "{a:1}{% file '' %}" },
+      "created": 1577642272326,
+      "description": "",
+      "headers": [
+        {
+          "description": "",
+          "id": "pair_ca71f1e4fce24bf484660cdb6a9ac0f5",
+          "name": "",
+          "value": ""
+        },
+        {
+          "id": "pair_50626483b98f4a7886b7f0cc5e25b81f",
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "isPrivate": false,
+      "metaSortKey": -1577642272326,
+      "method": "PUT",
+      "modified": 1579891209566,
+      "name": "My Request",
+      "parameters": [],
+      "parentId": "fld_46f71e3e19d740f3bb94be17f1200eac",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "https://smithfield.trellis.one/bookmarks/services/ainz/rules",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_46f71e3e19d740f3bb94be17f1200eac",
+      "created": 1579891204935,
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1579891255819.875,
+      "modified": 1580007276164,
+      "name": "Debug ainz",
+      "parentId": "wrk_caf58c4b0d994e0197cedddf67114e0c",
+      "_type": "request_group"
+    },
+    {
+      "_id": "wrk_caf58c4b0d994e0197cedddf67114e0c",
+      "created": 1577642131788,
+      "description": "",
+      "modified": 1577642131788,
+      "name": "Insomnia",
+      "parentId": null,
+      "_type": "workspace"
+    },
+    {
+      "_id": "req_fbfe6e484746423a93c3040942ea9962",
+      "authentication": { "token": "god", "type": "bearer" },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{% file 'C:\\\\Users\\\\alex\\\\source\\\\oada-srvc-docker\\\\services-available\\\\ainz\\\\rule.example.json5' %}"
+      },
+      "created": 1579651163747,
+      "description": "",
+      "headers": [
+        {
+          "id": "pair_350ab2a7e9e0445e8d7c0c006bea5c81",
+          "name": "Content-Type",
+          "value": "application/vnd.oada.ainz.rule.1+json"
+        },
+        {
+          "description": "",
+          "id": "pair_482b776211a34f5e8e7707923c268680",
+          "name": "",
+          "value": ""
+        }
+      ],
+      "isPrivate": false,
+      "metaSortKey": -1577642272226,
+      "method": "POST",
+      "modified": 1579891225547,
+      "name": "Add rule",
+      "parameters": [],
+      "parentId": "fld_46f71e3e19d740f3bb94be17f1200eac",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "https://{{ OADA_API  }}/bookmarks/services/ainz/rules",
+      "_type": "request"
+    },
+    {
+      "_id": "req_c60ffd12f71346499f6ea4e7bfe3209f",
+      "authentication": { "token": "god", "type": "bearer" },
+      "body": { "mimeType": "application/json", "text": "{\n}" },
+      "created": 1579722023139,
+      "description": "",
+      "headers": [
+        {
+          "id": "pair_350ab2a7e9e0445e8d7c0c006bea5c81",
+          "name": "Content-Type",
+          "value": "application/vnd.oada.ainz.rule.1+json"
+        },
+        {
+          "description": "",
+          "id": "pair_482b776211a34f5e8e7707923c268680",
+          "name": "",
+          "value": ""
+        }
+      ],
+      "isPrivate": false,
+      "metaSortKey": -1577642272201,
+      "method": "GET",
+      "modified": 1580006361620,
+      "name": "Get rules",
+      "parameters": [],
+      "parentId": "fld_46f71e3e19d740f3bb94be17f1200eac",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "https://{{ OADA_API  }}/bookmarks/_meta",
+      "_type": "request"
+    },
+    {
+      "_id": "req_a6fd6a7016e44ae0b82cc21acd124ca9",
+      "authentication": { "token": "god", "type": "bearer" },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"foo\": \"stuff\"\n}\n"
+      },
+      "created": 1579824862714,
+      "description": "",
+      "headers": [
+        {
+          "id": "pair_350ab2a7e9e0445e8d7c0c006bea5c81",
+          "name": "Content-Type",
+          "value": "application/vnd.oada.ainz.rule.1+json"
+        },
+        {
+          "description": "",
+          "id": "pair_482b776211a34f5e8e7707923c268680",
+          "name": "",
+          "value": ""
+        }
+      ],
+      "isPrivate": false,
+      "metaSortKey": -1577642272188.5,
+      "method": "GET",
+      "modified": 1579893238019,
+      "name": "test doc",
+      "parameters": [],
+      "parentId": "fld_46f71e3e19d740f3bb94be17f1200eac",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "https://{{ OADA_API  }}/resources/gooddoc/_meta/services/ainz",
+      "_type": "request"
+    },
+    {
+      "_id": "req_e0402ea51b9f41d1a96a2222cb46fea8",
+      "authentication": { "token": "god", "type": "bearer" },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"foo\": \"stuff\"\n}"
+      },
+      "created": 1579733187655,
+      "description": "",
+      "headers": [
+        {
+          "id": "pair_350ab2a7e9e0445e8d7c0c006bea5c81",
+          "name": "Content-Type",
+          "value": "application/vnd.oada.ainz.rule.1+json"
+        }
+      ],
+      "isPrivate": false,
+      "metaSortKey": -1577642272244.75,
+      "method": "POST",
+      "modified": 1579849561824,
+      "name": "create document",
+      "parameters": [],
+      "parentId": "fld_4f06226f4cf3483190b56162eb7a2672",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "https://{{ OADA_API  }}/resources",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_4f06226f4cf3483190b56162eb7a2672",
+      "created": 1579844765717,
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1577642272185.375,
+      "modified": 1579893248370,
+      "name": "Add document",
+      "parentId": "fld_46f71e3e19d740f3bb94be17f1200eac",
+      "_type": "request_group"
+    },
+    {
+      "_id": "req_ef3c78e51a6048f9b52963ce4665f9b8",
+      "authentication": { "token": "god", "type": "bearer" },
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n\t\"_id\": \"{% ResponseEval 'header', 'req_e0402ea51b9f41d1a96a2222cb46fea8', 'Location', 'output.substring(1)' %}\",\n\t\"_rev\": \"\"\n}"
+      },
+      "created": 1579837669403,
+      "description": "",
+      "headers": [
+        {
+          "id": "pair_350ab2a7e9e0445e8d7c0c006bea5c81",
+          "name": "Content-Type",
+          "value": "application/vnd.oada.ainz.rule.1+json"
+        },
+        {
+          "description": "",
+          "id": "pair_482b776211a34f5e8e7707923c268680",
+          "name": "",
+          "value": ""
+        }
+      ],
+      "isPrivate": false,
+      "metaSortKey": -1577642272194.75,
+      "method": "POST",
+      "modified": 1579893567527,
+      "name": "Add document",
+      "parameters": [],
+      "parentId": "fld_4f06226f4cf3483190b56162eb7a2672",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "https://{{ OADA_API  }}/bookmarks/trellisfw/documents/",
+      "_type": "request"
+    },
+    {
+      "_id": "req_d17267d399334ef1a5854dead2dd0598",
+      "authentication": { "token": "god", "type": "bearer" },
+      "body": { "mimeType": "application/json", "text": "{\n}" },
+      "created": 1579733264231,
+      "description": "",
+      "headers": [
+        {
+          "id": "pair_350ab2a7e9e0445e8d7c0c006bea5c81",
+          "name": "Content-Type",
+          "value": "application/vnd.oada.ainz.rule.1+json"
+        },
+        {
+          "description": "",
+          "id": "pair_482b776211a34f5e8e7707923c268680",
+          "name": "",
+          "value": ""
+        }
+      ],
+      "isPrivate": false,
+      "metaSortKey": -1577642272182.25,
+      "method": "GET",
+      "modified": 1579893239996,
+      "name": "get documents",
+      "parameters": [],
+      "parentId": "fld_46f71e3e19d740f3bb94be17f1200eac",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "https://{{ OADA_API  }}/bookmarks/trellisfw/documents/f8003804-62c3-4f95-a903-ab2ee6b7f4e2/_meta",
+      "_type": "request"
+    },
+    {
+      "_id": "req_d22ebd8ca5464955ac56b717564111ca",
+      "authentication": { "token": "god", "type": "bearer" },
+      "body": { "mimeType": "application/json", "text": "{\n}" },
+      "created": 1579734355252,
+      "description": "",
+      "headers": [
+        {
+          "id": "pair_350ab2a7e9e0445e8d7c0c006bea5c81",
+          "name": "Content-Type",
+          "value": "application/vnd.oada.ainz.rule.1+json"
+        },
+        {
+          "description": "",
+          "id": "pair_482b776211a34f5e8e7707923c268680",
+          "name": "",
+          "value": ""
+        }
+      ],
+      "isPrivate": false,
+      "metaSortKey": -1577642272179.125,
+      "method": "GET",
+      "modified": 1579893241244,
+      "name": "get target queue",
+      "parameters": [],
+      "parentId": "fld_46f71e3e19d740f3bb94be17f1200eac",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "https://{{ OADA_API  }}/bookmarks/services/target/tasks/",
+      "_type": "request"
+    },
+    {
+      "_id": "req_6cc01bca7d85459b9116cd70526c629d",
+      "authentication": { "token": "def", "type": "bearer" },
+      "body": {
+        "fileName": "C:\\Users\\alex\\OneDrive\\Desktop\\lenna.jpg",
+        "mimeType": "application/octet-stream"
+      },
+      "created": 1578518334800,
+      "description": "",
+      "headers": [
+        {
+          "id": "pair_350ab2a7e9e0445e8d7c0c006bea5c81",
+          "name": "Content-Type",
+          "value": "image/jpeg"
+        }
+      ],
+      "isPrivate": false,
+      "metaSortKey": -1577642272177.5625,
+      "method": "GET",
+      "modified": 1580006288320,
+      "name": "Binary GET",
+      "parameters": [],
+      "parentId": "fld_46f71e3e19d740f3bb94be17f1200eac",
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingFollowRedirects": "global",
+      "settingRebuildPath": true,
+      "settingSendCookies": true,
+      "settingStoreCookies": true,
+      "url": "https://{{ OADA_API  }}/resources/test/_meta",
+      "_type": "request"
+    },
+    {
+      "_id": "env_a79150fb982d3af2bd60b9d416e989f7f3c427ba",
+      "color": null,
+      "created": 1577642131825,
+      "data": {},
+      "dataPropertyOrder": null,
+      "isPrivate": false,
+      "metaSortKey": 1577642131826,
+      "modified": 1577642131825,
+      "name": "Base Environment",
+      "parentId": "wrk_caf58c4b0d994e0197cedddf67114e0c",
+      "_type": "environment"
+    },
+    {
+      "_id": "jar_a79150fb982d3af2bd60b9d416e989f7f3c427ba",
+      "cookies": [],
+      "created": 1577642131833,
+      "modified": 1577642131833,
+      "name": "Default Jar",
+      "parentId": "wrk_caf58c4b0d994e0197cedddf67114e0c",
+      "_type": "cookie_jar"
+    },
+    {
+      "_id": "env_de09b713822740b1a434a3b8d40797d4",
+      "color": null,
+      "created": 1578535096723,
+      "data": { "OADA_API": "localhost" },
+      "dataPropertyOrder": { "&": ["OADA_API"] },
+      "isPrivate": false,
+      "metaSortKey": 1578535096723,
+      "modified": 1578535169162,
+      "name": "local",
+      "parentId": "env_a79150fb982d3af2bd60b9d416e989f7f3c427ba",
+      "_type": "environment"
+    },
+    {
+      "_id": "env_8de31a638ede4411b1e710bab0ff0295",
+      "color": null,
+      "created": 1578535172508,
+      "data": { "OADA_API": "smithfield.trellis.one" },
+      "dataPropertyOrder": { "&": ["OADA_API"] },
+      "isPrivate": false,
+      "metaSortKey": 1578535172508,
+      "modified": 1578535201626,
+      "name": "smithfield",
+      "parentId": "env_a79150fb982d3af2bd60b9d416e989f7f3c427ba",
+      "_type": "environment"
+    }
+  ]
+}

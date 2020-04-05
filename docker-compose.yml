@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  ##########################################
+  # Overrides for oada-core services:
+  ##########################################
+
+  # Add ourselves to yarn to do yarn install
+  yarn:
+    volumes:
+      - ./services-available/ainz:/code/ainz
+
+  # Add ourselves to admin container:
+  admin:
+    volumes:
+      - ./services-available/ainz:/code/ainz
+
+  ###############################################
+  # This service's definition:
+  ###############################################
+  ainz:
+    depends_on:
+      - startup
+    build:
+      context: ./services-available/ainz
+    container_name: ainz
+    restart: always
+    networks:
+      - http_net
+      - startup_net
+      - arango_net
+    volumes:
+      - ./services-available/ainz:/code/ainz
+      - ./oada-core/libs:/code/libs
+      - ./oada-srvc-docker-config.js:/oada-srvc-docker-config.js
+    environment:
+      - NODE_TLS_REJECT_UNAUTHORIZED
+      - NODE_ENV=${NODE_ENV:-development}
+      - DEBUG
