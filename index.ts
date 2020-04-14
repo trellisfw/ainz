@@ -108,7 +108,7 @@ async function initialize () {
     )
   } catch (err) {
     error(err)
-    if (err.response.status === 404) {
+    if (err?.response?.status === 404) {
     } else {
       throw err
     }
