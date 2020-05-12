@@ -42,7 +42,10 @@ const warn = debug('ainz:warn')
 const error = debug('ainz:error')
 
 // Stuff from config
-const TOKEN: string = config.get('token') // TODO: Get token properly (multiple?)
+/**
+ * @todo: Get token properly (multiple?)
+ */
+const TOKENS: string[] = config.get('token').split(',')
 const DOMAIN: string = config.get('domain')
 const RULES_PATH: string = config.get('rules_path')
 const RULES_TREE: OADATree = config.get('rules_tree')
@@ -68,11 +71,14 @@ function fixBody<T> (body: ReturnBody<T>): Body<T> {
   return isWeird(body) ? body.data : body
 }
 
-async function initialize () {
+/**
+ * Start-up for a given user (token)
+ */
+async function initialize (token: string) {
   // Connect to oada
   const conn = await connect({
     domain: 'https://' + DOMAIN,
-    token: TOKEN,
+    token,
     cache: false
   })
   // await conn.resetCache()
@@ -82,7 +88,7 @@ async function initialize () {
   await conn.put({
     path: RULES_PATH,
     headers: {
-      Authorization: `Bearer ${TOKEN}`
+      Authorization: `Bearer ${token}`
     },
     tree: RULES_TREE,
     data: {}
@@ -92,11 +98,11 @@ async function initialize () {
     const { data } = await conn.watch({
       path: RULES_PATH,
       headers: {
-        Authorization: `Bearer ${TOKEN}`
+        Authorization: `Bearer ${token}`
       },
       tree: RULES_TREE,
       // Set up a watch for changes to rules
-      payload: { conn, token: TOKEN },
+      payload: { conn, token: token },
       callback: rulesHandler
     })
     trace('Registering initial rules: %O', data)
@@ -104,7 +110,7 @@ async function initialize () {
     // TODO: Refactor this?
     const rules = Object.keys(data ?? {}).filter(r => !r.match(/^_/))
     await Promise.map(rules, id =>
-      registerRule({ rule: data[id], id, conn, token: TOKEN })
+      registerRule({ rule: data[id], id, conn, token: token })
     )
   } catch (err) {
     error(err)
@@ -366,4 +372,4 @@ async function runRule ({
   })
 }
 
-initialize()
+TOKENS.map(token => initialize(token))
