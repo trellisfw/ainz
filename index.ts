@@ -21,16 +21,11 @@ import pointer from 'json-pointer'
 import PQueue from 'p-queue'
 import debug from 'debug'
 // prettier-ignore
-import type { JSONSchema8 as Schema } from 'jsonschema8'
 
-import {
-  connect,
-  OADAChangeResponse,
-  OADAConnection,
-  OADAResponse,
-  OADATree,
-  OADAWatchConfig
-} from '@oada/oada-cache'
+import { connect, OADAClient } from '@oada/client'
+import Rule, { assert as assertRule } from '@oada/types/oada/ainz/rule'
+import { assert as assertResource } from '@oada/types/oada/resource'
+import Change from '@oada/types/oada/change/v2'
 // const { getToken } = require('/code/winfield-shared/service-user')
 
 // @ts-ignore
@@ -40,6 +35,13 @@ const trace = debug('ainz:trace')
 const info = debug('ainz:info')
 const warn = debug('ainz:warn')
 const error = debug('ainz:error')
+
+type OADATree = {
+  _type?: string
+  _rev?: number
+} & Partial<{
+  [key: string]: OADATree
+}>
 
 // Stuff from config
 /**
@@ -60,58 +62,50 @@ const META_PATH: string = config.get('meta_path')
 
 const ajv = new Ajv()
 
-// TODO: Hopefully this bug in oada-cache gets fixed
-type Body<T> = { _rev: string; _id: string } & T
-type WeirdBody<T> = { data: Body<T> }
-type ReturnBody<T> = Body<T> | WeirdBody<T>
-function isWeird<T> (body: ReturnBody<T>): body is WeirdBody<T> {
-  return (body as Body<T>)._rev === undefined
-}
-function fixBody<T> (body: ReturnBody<T>): Body<T> {
-  return isWeird(body) ? body.data : body
-}
+let oada: OADAClient
 
 /**
  * Start-up for a given user (token)
  */
 async function initialize (token: string) {
   // Connect to oada
-  const conn = await connect({
-    domain: 'https://' + DOMAIN,
-    token,
-    cache: false
-  })
+  const conn = oada
+    ? oada.clone(token)
+    : (oada = await connect({
+        domain: 'https://' + DOMAIN,
+        token
+      }))
   // await conn.resetCache()
 
   // TODO: Better ensure relavent paths exist
   info('Ensuring rules resource exists')
   await conn.put({
     path: RULES_PATH,
-    headers: {
-      Authorization: `Bearer ${token}`
-    },
     tree: RULES_TREE,
     data: {}
   })
 
   try {
-    const { data } = await conn.watch({
+    const { data } = await conn.get({
       path: RULES_PATH,
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
       tree: RULES_TREE,
       // Set up a watch for changes to rules
-      payload: { conn, token: token },
-      callback: rulesHandler
+      watchCallback: change =>
+        rulesHandler({ conn, token, change: change as Change[0] })
     })
     trace('Registering initial rules: %O', data)
     // Register the pre-existing rules
     // TODO: Refactor this?
     const rules = Object.keys(data ?? {}).filter(r => !r.match(/^_/))
-    await Promise.map(rules, id =>
-      registerRule({ rule: data[id], id, conn, token: token })
-    )
+    await Promise.map(rules, id => {
+      try {
+        const rule = (data as any)?.[id]
+        assertRule(rule)
+        registerRule({ rule, id, conn, token: token })
+      } catch (err) {
+        warn(`Invalid rule ${id}: %O`, err)
+      }
+    })
   } catch (err) {
     error(err)
     if (err?.response?.status === 404) {
@@ -120,26 +114,19 @@ async function initialize (token: string) {
     }
   }
 }
-
-type Rule = {
-  list: string
-  destination: string
-  schema: Schema
-  meta?: object
-}
 type RuleInfo = {
   id: string
   rule: Rule
 }
 type ConnInfo = {
-  conn: OADAConnection
+  conn: OADAClient
   token: string
 }
 // Define "context" rules are registered with
 type RuleCtx = RuleInfo & ConnInfo
 // Define "thing" a rule runs on
 type RuleItem = {
-  data: OADAResponse['data']
+  data: unknown
   item: string
 }
 // Define "context" rules are run with
@@ -147,16 +134,15 @@ type RuleRunCtx = RuleCtx & { validate: Ajv.ValidateFunction }
 
 // Run when there is a change to list of rules
 async function rulesHandler ({
-  response: { change },
+  change,
   conn,
   token,
   ...ctx
-}: OADAChangeResponse & ConnInfo) {
+}: { change: Change[0] } & ConnInfo) {
   info('Running rules watch handler')
   trace(change)
 
-  const { type, body } = change
-  const data = fixBody(body)
+  const { type, body: data } = change
   // Get new rules ignoring _ keys
   const rules = Object.keys(data ?? {}).filter(r => !r.match(/^_/))
   switch (type) {
@@ -165,14 +151,9 @@ async function rulesHandler ({
         try {
           // Fetch entire rule (not just changed part)
           const path = `${RULES_PATH}/${id}`
-          const { data } = await conn.get({
-            path,
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          })
-          const rule = fixBody(data)
+          const { data: rule } = await conn.get({ path })
 
+          assertRule(rule)
           registerRule({ rule, id, conn, token, ...ctx })
         } catch (err) {
           error(`Error registering rule ${id}: %O`, err)
@@ -191,8 +172,7 @@ async function rulesHandler ({
 }
 
 // Keep track of registered watches
-type RuleWatch = OADAWatchConfig<RuleRunCtx>['callback']
-const ruleWatches: { [key: string]: RuleWatch } = {}
+const ruleWatches: { [key: string]: string } = {}
 async function unregisterRule ({ id, conn }: Omit<RuleCtx, 'rule'>) {
   info(`Unregistering rule ${id}`)
   const oldWatch = ruleWatches[id]
@@ -205,27 +185,31 @@ async function registerRule ({ rule, id, conn, token }: RuleCtx) {
 
   // TODO: Fix queue to be by rule/item and not just rule
   const queue = new PQueue({ concurrency: 1 })
-  const callback: RuleWatch = ctx => queue.add(() => ruleHandler(ctx))
-  // Record callback for removing later
-  ruleWatches[id] = callback
 
   try {
     const validate = ajv.compile(rule.schema)
     const payload = { rule, validate, id, conn, token }
-    const { data } = await conn.watch({
+    ruleWatches[id] = await conn.watch({
       path: rule.list,
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
-      payload,
-      callback
+      watchCallback: change =>
+        queue.add(() =>
+          ruleHandler({ ...payload, change: change as Change[0] })
+        )
+    })
+    const { data } = await conn.get({
+      path: rule.list
     })
 
     // TODO: How to make OADA cache resume from given rev?
     trace('Checking initial list items: %O', data)
     // Just send fake change for now
-    const change = { type: <const>'merge', body: data }
-    queue.add(() => ruleHandler({ response: { change }, ...payload }))
+    const change = {
+      type: <const>'merge',
+      path: '',
+      resource_id: '',
+      body: data as any
+    }
+    queue.add(() => ruleHandler({ change, ...payload }))
   } catch (err) {
     error(err)
     if (err?.response?.status === 404) {
@@ -237,19 +221,18 @@ async function registerRule ({ rule, id, conn, token }: RuleCtx) {
 
 // Run when there is a change to the list a rule applies to
 async function ruleHandler ({
-  response: { change },
+  change,
   rule,
   validate,
   id,
   conn,
   token
-}: OADAChangeResponse & Exclude<RuleRunCtx, RuleItem>) {
+}: { change: Change[0] } & Exclude<RuleRunCtx, RuleItem>) {
   trace(`Handling rule ${id}`)
   trace('%O', rule)
   trace(change)
 
-  const { type, body } = change
-  const data = fixBody(body)
+  const { type, body: data } = change
   // Get new list items ignoring _ keys
   const items = Object.keys(data ?? {}).filter(i => !i.match(/^_/))
   switch (type) {
@@ -261,35 +244,28 @@ async function ruleHandler ({
           // Check if rule already ran on this resource
           // TODO: Run again if _rev has increased?
           conn.get({
-            path: `${path}/_meta${META_PATH}/${id}`,
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
+            path: `${path}/_meta${META_PATH}/${id}`
           })
         ).catch(
           // Catch 404 errors only
-          (e: { response: OADAResponse }) => e?.response?.status === 404,
+          (e: { status: number }) => e?.status === 404,
           async () => {
-            // 404 Means this rule has not been run on item yet
-            const tree = {}
-            pointer.set(tree, path, LIST_TREE)
-            const { data } = await conn.get({
-              path,
-              headers: {
-                Authorization: `Bearer ${token}`
-              },
-              tree
-            })
-            // TODO: Only fetch data/meta once
-            const { data: meta } = await conn.get({
-              path: `${path}/_meta`,
-              headers: {
-                Authorization: `Bearer ${token}`
-              }
-            })
-            data._meta = meta
-
             try {
+              // 404 Means this rule has not been run on item yet
+              const tree = {}
+              pointer.set(tree, path, LIST_TREE)
+              const { data } = await conn.get({
+                path,
+                tree
+              })
+              assertResource(data)
+              // TODO: Only fetch data/meta once
+              const { data: meta } = await conn.get({
+                path: `${path}/_meta`
+              })
+              assertResource(meta)
+              data._meta = meta
+
               await runRule({ data, validate, item, rule, id, conn, token })
             } catch (err) {
               // Catch error so we can still try other items
@@ -313,8 +289,7 @@ async function runRule ({
   item,
   rule,
   id,
-  conn,
-  token
+  conn
 }: RuleRunCtx & RuleItem) {
   trace(`Testing rule ${id} on ${item}`)
   trace(data)
@@ -329,17 +304,16 @@ async function runRule ({
   }
 
   info(`Running rule ${id} on ${item}`)
+  // @ts-ignore
+  const { _id, _rev } = data
 
   if (rule.meta) {
     // Add meta info to item if supplied
     trace('Adding to _meta %O', rule.meta)
     await conn.put({
-      path: `/${data._id}/_meta`,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      data: rule.meta
+      path: `/${_id}/_meta`,
+      contentType: 'application/json',
+      data: rule.meta as any
     })
   }
 
@@ -349,12 +323,9 @@ async function runRule ({
   // TODO: How to use tree param to do deep PUT??
   await conn.put({
     path: `${rule.destination}/${item}`,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
+    contentType: 'application/json',
     data: {
-      _id: data._id
+      _id
       // _rev: data._rev
     }
   })
@@ -362,13 +333,10 @@ async function runRule ({
   // Record in _meta that this rule ran on this item
   trace(`Marking rule ${id} completed`)
   await conn.put({
-    path: `/${data._id}/_meta${META_PATH}/${id}`,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
+    path: `/${_id}/_meta${META_PATH}/${id}`,
+    contentType: 'application/json',
     // Record what _rev was when we ran
-    data: { _rev: data._rev }
+    data: { _rev }
   })
 }
 
