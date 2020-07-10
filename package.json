@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@oada/client": "^1.0.1",
-    "@oada/types": "^1.0.6",
+    "@oada/types": "^1.0.9-alpha.137",
     "ajv": "^6.12.0",
     "bluebird": "^3.5.1",
     "debug": "^4.1.1",

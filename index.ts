@@ -24,8 +24,9 @@ import debug from 'debug'
 
 import { connect, OADAClient } from '@oada/client'
 import Rule, { assert as assertRule } from '@oada/types/oada/ainz/rule'
-import { assert as assertResource } from '@oada/types/oada/resource'
+import Resource, { assert as assertResource } from '@oada/types/oada/resource'
 import Change from '@oada/types/oada/change/v2'
+import Job from '@oada/types/oada/service/job'
 // const { getToken } = require('/code/winfield-shared/service-user')
 
 // @ts-ignore
@@ -126,7 +127,7 @@ type ConnInfo = {
 type RuleCtx = RuleInfo & ConnInfo
 // Define "thing" a rule runs on
 type RuleItem = {
-  data: unknown
+  data: Resource
   item: string
 }
 // Define "context" rules are run with
@@ -304,31 +305,54 @@ async function runRule ({
   }
 
   info(`Running rule ${id} on ${item}`)
-  // @ts-ignore
   const { _id, _rev } = data
 
-  if (rule.meta) {
-    // Add meta info to item if supplied
-    trace('Adding to _meta %O', rule.meta)
-    await conn.put({
-      path: `/${_id}/_meta`,
-      contentType: 'application/json',
-      data: rule.meta as any
-    })
-  }
+  switch (rule.type) {
+    case 'reindex':
+      if (rule.meta) {
+        // Add meta info to item if supplied
+        trace('Adding to _meta %O', rule.meta)
+        await conn.put({
+          path: `/${_id}/_meta`,
+          contentType: 'application/json',
+          data: rule.meta as any
+        })
+      }
 
-  // Perform the "move"
-  // Use PUT not POST incase same item it matched multiple times
-  // TODO: Content-Type??
-  // TODO: How to use tree param to do deep PUT??
-  await conn.put({
-    path: `${rule.destination}/${item}`,
-    contentType: 'application/json',
-    data: {
-      _id
-      // _rev: data._rev
-    }
-  })
+      // Perform the "move"
+      // Use PUT not POST incase same item it matched multiple times
+      // TODO: Content-Type??
+      // TODO: How to use tree param to do deep PUT??
+      await conn.put({
+        path: `${rule.destination}/${item}`,
+        contentType: 'application/json',
+        data: {
+          _id
+          // _rev: data._rev
+        }
+      })
+      break
+
+    case 'job':
+      // Create new job
+      // TODO: Make TS understand my rule schema better...
+      const { job } = rule as { job: Job }
+      // Link to resource in job config
+      if (rule.pointer) {
+        pointer.set(job as object, `/config${rule.pointer}`, { _id })
+      }
+      const { headers } = await conn.post({
+        path: '/resources',
+        data: rule.job as any
+      })
+      // Put job is service's queue
+      const jobid = headers['content-location'].substr(1)
+      await conn.put({
+        path: `/bookmarks/services/${job.service}/jobs/${jobid}`,
+        data: { _id: jobid }
+      })
+      break
+  }
 
   // Record in _meta that this rule ran on this item
   trace(`Marking rule ${id} completed`)
