@@ -13,8 +13,8 @@
  * limitations under the License.
  */
 
-module.exports = {
-  domain: 'proxy',
+export default <const>{
+  domain: 'localhost',
   token: 'god',
   meta_path: '/services/ainz/rules',
   rules_path: '/bookmarks/services/ainz/rules',
@@ -28,36 +28,36 @@ module.exports = {
           _type: 'application/vnd.oada.service.1+json',
           _rev: 0,
           rules: {
-            _type: 'application/vnd.oada.ainz.rules.1+json',
-            _rev: 0,
+            '_type': 'application/vnd.oada.ainz.rules.1+json',
+            '_rev': 0,
             '*': {
               _type: 'application/vnd.oada.ainz.rule.1+json',
-              _rev: 0
-            }
-          }
-        }
-      }
-    }
+              _rev: 0,
+            },
+          },
+        },
+      },
+    },
   },
   // TODO: How to generalize this?? Include it in the rule??
   list_tree: {
     _type: 'application/json',
     _rev: 0,
     audits: {
-      _type: 'application/json',
-      _rev: 0,
+      '_type': 'application/json',
+      '_rev': 0,
       '*': {
         _type: 'application/json',
-        _rev: 0
-      }
+        _rev: 0,
+      },
     },
     cois: {
-      _type: 'application/json',
-      _rev: 0,
+      '_type': 'application/json',
+      '_rev': 0,
       '*': {
         _type: 'application/json',
-        _rev: 0
-      }
-    }
-  }
-}
+        _rev: 0,
+      },
+    },
+  },
+};

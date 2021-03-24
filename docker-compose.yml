@@ -1,39 +1,16 @@
-version: '3'
-
 services:
-  ##########################################
-  # Overrides for oada-core services:
-  ##########################################
-
-  # Add ourselves to yarn to do yarn install
-  yarn:
-    volumes:
-      - ./services-available/ainz:/code/ainz
-
-  # Add ourselves to admin container:
-  admin:
-    volumes:
-      - ./services-available/ainz:/code/ainz
-
-  ###############################################
-  # This service's definition:
-  ###############################################
   ainz:
-    depends_on:
-      - startup
     build:
-      context: ./services-available/ainz
-    container_name: ainz
-    restart: always
-    networks:
-      - http_net
-      - startup_net
-      - arango_net
-    volumes:
-      - ./services-available/ainz:/code/ainz
-      - ./oada-core/libs:/code/libs
-      - ./oada-srvc-docker-config.js:/oada-srvc-docker-config.js
+      context: .
+    restart: unless-stopped
+    #networks:
+    #  - http_net
     environment:
       - NODE_TLS_REJECT_UNAUTHORIZED
       - NODE_ENV=${NODE_ENV:-development}
-      - DEBUG
+      - DEBUG=${DEBUG-*:error,*:warn,*:info}
+      # Connect to host if DOMAIN not set?
+      # You should really not rely on this though. Set DOMAIN.
+      - domain=${DOMAIN:-host.docker.internal}
+      # TODO: Nicer way to deal with tokens?
+      - token=${AINZ_TOKENS:-god}

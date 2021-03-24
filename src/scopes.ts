@@ -18,6 +18,6 @@ export default {
     'application/vnd.oada.services.1+json',
     'application/vnd.oada.service.1+json',
     'application/vnd.oada.bookmarks.1+json',
-    'application/vnd.oada.ainz.rule.1+json'
-  ]
-}
+    'application/vnd.oada.ainz.rule.1+json',
+  ],
+};

@@ -21,9 +21,9 @@
     type: 'object',
     properties: {
       foo: { type: 'string' },
-      bar: { type: 'number' }
+      bar: { type: 'number' },
     },
-    required: ['foo']
+    required: ['foo'],
   },
   // Where to link items passing the rule
   destination: '/bookmarks/services/target/tasks',
@@ -34,10 +34,10 @@
       'trellis-foo': {
         tasks: {
           'some-uuid-thingy': {
-            status: 'pending'
-          }
-        }
-      }
-    }
-  }
+            status: 'pending',
+          },
+        },
+      },
+    },
+  },
 }
