@@ -13,6 +13,8 @@
  * limitations under the License.
  */
 
+import { join } from 'path';
+
 import Bluebird from 'bluebird';
 import Ajv, { ValidateFunction } from 'ajv';
 import pointer from 'json-pointer';
@@ -20,16 +22,15 @@ import PQueue from 'p-queue';
 import debug from 'debug';
 
 import { connect, OADAClient } from '@oada/client';
+import { ListWatch } from '@oada/list-lib';
 import Rule, { assert as assertRule } from '@oada/types/oada/ainz/rule';
 import Resource, { assert as assertResource } from '@oada/types/oada/resource';
-import Change from '@oada/types/oada/change/v2';
-import Job from '@oada/types/oada/service/job';
+import type Job from '@oada/types/oada/service/job';
 
 import config from './config';
 
 const trace = debug('ainz:trace');
 const info = debug('ainz:info');
-const warn = debug('ainz:warn');
 const error = debug('ainz:error');
 
 type OADATree = {
@@ -47,7 +48,6 @@ const TOKENS: string[] = config.get('token').split(',');
 const DOMAIN: string = config.get('domain');
 const RULES_PATH: string = config.get('rules_path');
 const RULES_TREE: OADATree = config.get('rules_tree');
-const LIST_TREE: OADATree = config.get('list_tree');
 const META_PATH: string = config.get('meta_path');
 
 // TODO: Handle resuming properly from where we left off
@@ -78,33 +78,25 @@ async function initialize(token: string) {
     data: {},
   });
 
+  let rulesWatch;
   try {
-    const { data } = await conn.get({
+    // Watch to list of rules to register them
+    rulesWatch = new ListWatch({
+      assertItem: assertRule,
+      name: 'ainz',
+      conn,
       path: RULES_PATH,
       tree: RULES_TREE,
+      // Load all rules every time
+      resume: false,
       // Set up a watch for changes to rules
-      watchCallback: (change) =>
-        rulesHandler({ conn, token, change: change as Change[0] }),
+      onItem: (rule, id) => registerRule({ conn, token, rule, id }),
+      // Stop deleted rules
+      onRemoveItem: (id) => unregisterRule({ conn, token, id }),
     });
-    trace('Registering initial rules: %O', data);
-    // Register the pre-existing rules
-    // TODO: Refactor this?
-    const rules = Object.keys(data ?? {}).filter((r) => !r.match(/^_/));
-    await Bluebird.map(rules, (id) => {
-      try {
-        const rule = (data as any)?.[id];
-        assertRule(rule);
-        registerRule({ rule, id, conn, token: token });
-      } catch (err) {
-        warn(`Invalid rule ${id}: %O`, err);
-      }
-    });
-  } catch (err) {
-    error(err);
-    if (err?.response?.status === 404) {
-    } else {
-      throw err;
-    }
+  } catch {
+    // Be sure to close everything?
+    await rulesWatch?.stop();
   }
 }
 type RuleInfo = {
@@ -125,55 +117,16 @@ type RuleItem = {
 // Define "context" rules are run with
 type RuleRunCtx = RuleCtx & { validate: ValidateFunction };
 
-// Run when there is a change to list of rules
-async function rulesHandler({
-  change,
-  conn,
-  token,
-  ...ctx
-}: { change: Change[0] } & ConnInfo) {
-  info('Running rules watch handler');
-  trace(change);
-
-  const { type, body: data } = change;
-  // Get new rules ignoring _ keys
-  const rules = Object.keys(data ?? {}).filter((r) => !r.match(/^_/));
-  switch (type) {
-    case 'merge':
-      await Bluebird.map(rules, async (id) => {
-        try {
-          // Fetch entire rule (not just changed part)
-          const path = `${RULES_PATH}/${id}`;
-          const { data: rule } = await conn.get({ path });
-
-          assertRule(rule);
-          registerRule({ rule, id, conn, token, ...ctx });
-        } catch (err) {
-          error(`Error registering rule ${id}: %O`, err);
-        }
-      });
-      break;
-    case 'delete':
-      // Unregister the deleted rule
-      await Bluebird.map(rules, (id) =>
-        unregisterRule({ id, conn, token, ...ctx })
-      );
-      break;
-    default:
-      warn(`Ignoring uknown change type ${type} to rules`);
-  }
-}
-
 // Keep track of registered watches
-const ruleWatches: { [key: string]: string } = {};
-async function unregisterRule({ id, conn }: Omit<RuleCtx, 'rule'>) {
+const ruleWatches: { [key: string]: ListWatch } = {};
+async function unregisterRule({ id }: Omit<RuleCtx, 'rule'>) {
   info('Unregistering rule %s', id);
   const oldWatch = ruleWatches[id];
-  await conn.unwatch(oldWatch);
+  await oldWatch.stop();
   delete ruleWatches[id];
 }
 async function registerRule({ rule, id, conn, token }: RuleCtx) {
-  info(`Registering new rule ${id}`);
+  info('Registering new rule %s', id);
   trace(rule);
 
   // TODO: Fix queue to be by rule/item and not just rule
@@ -182,28 +135,36 @@ async function registerRule({ rule, id, conn, token }: RuleCtx) {
   try {
     const validate = ajv.compile(rule.schema);
     const payload = { rule, validate, id, conn, token };
-    ruleWatches[id] = await conn.watch({
+    ruleWatches[id] = new ListWatch({
+      name: `ainz/rule-${id}`,
+      //assertItem: validate,
+      assertItem: assertResource,
+      conn,
       path: rule.list,
-      type: 'single',
-      watchCallback: (change) =>
-        queue.add(() =>
-          ruleHandler({ ...payload, change: change as Change[0] })
-        ),
+      tree: rule.tree as object,
+      itemsPath: rule.itemsPath as string,
+      onChangeItem: async (_change, item) => {
+        const path = join(rule.list, item);
+        await Bluebird.resolve(
+          // Check if this rule already ran on this resource
+          // TODO: Run again if _rev has increased?
+          conn.get({
+            path: join(path, '_meta', META_PATH, id),
+          })
+        ).catch(
+          // Catch 404 errors only
+          (e: { status: number }) => e?.status === 404,
+          async () => {
+            // Fetch the whole item
+            const data = await conn.get({ path: join(rule.list, item) });
+            assertResource(data);
+            await ruleHandler({ ...payload, data, item });
+          }
+        );
+      },
+      onAddItem: (data, item) =>
+        queue.add(() => ruleHandler({ ...payload, data, item })),
     });
-    const { data } = await conn.get({
-      path: rule.list,
-    });
-
-    // TODO: How to make OADA cache resume from given rev?
-    trace('Checking initial list items: %O', data);
-    // Just send fake change for now
-    const change = {
-      type: <const>'merge',
-      path: '',
-      resource_id: '',
-      body: data as any,
-    };
-    queue.add(() => ruleHandler({ change, ...payload }));
   } catch (err) {
     error(err);
     if (err?.response?.status === 404) {
@@ -215,65 +176,29 @@ async function registerRule({ rule, id, conn, token }: RuleCtx) {
 
 // Run when there is a change to the list a rule applies to
 async function ruleHandler({
-  change,
   rule,
   validate,
   id,
+  item,
   conn,
   token,
-}: { change: Change[0] } & Exclude<RuleRunCtx, RuleItem>) {
-  trace(`Handling rule ${id}`);
+  data,
+}: RuleRunCtx & RuleItem) {
+  trace('Handling rule %s', id);
   trace('%O', rule);
-  trace(change);
 
-  const { type, body: data } = change;
-  // Get new list items ignoring _ keys
-  const items = Object.keys(data ?? {}).filter((i) => !i.match(/^_/));
-  switch (type) {
-    case 'merge':
-      await Bluebird.map(items, async (item) => {
-        const path = `${rule.list}/${item}`;
-        // TODO: Get body and meta at once?
-        return Bluebird.resolve(
-          // Check if rule already ran on this resource
-          // TODO: Run again if _rev has increased?
-          conn.get({
-            path: `${path}/_meta${META_PATH}/${id}`,
-          })
-        ).catch(
-          // Catch 404 errors only
-          (e: { status: number }) => e?.status === 404,
-          async () => {
-            try {
-              // 404 Means this rule has not been run on item yet
-              const tree = {};
-              pointer.set(tree, path, LIST_TREE);
-              const { data } = await conn.get({
-                path,
-                tree,
-              });
-              assertResource(data);
-              // TODO: Only fetch data/meta once
-              const { data: meta } = await conn.get({
-                path: `${path}/_meta`,
-              });
-              assertResource(meta);
-              data._meta = meta;
+  const path = join(rule.list, item);
+  try {
+    // TODO: Only fetch data/meta once
+    const { data: meta } = await conn.get({
+      path: `${path}/_meta`,
+    });
+    data._meta = meta as Resource;
 
-              await runRule({ data, validate, item, rule, id, conn, token });
-            } catch (err) {
-              // Catch error so we can still try other items
-              error(`Error running rule ${id}: %O`, err);
-            }
-          }
-        );
-      });
-      break;
-    case 'delete':
-      // TODO: Handle deleting rules
-      break;
-    default:
-      warn(`Ignoring unknown change type ${type}`);
+    await runRule({ data, validate, item, rule, id, conn, token });
+  } catch (err) {
+    // Catch error so we can still try other items
+    error(`Error running rule %s: %O`, id, err);
   }
 }
 
@@ -285,7 +210,7 @@ async function runRule({
   id,
   conn,
 }: RuleRunCtx & RuleItem) {
-  trace(`Testing rule ${id} on ${item}`);
+  trace(`Testing rule %s on %s`, id, item);
   trace(data);
 
   try {
@@ -297,7 +222,7 @@ async function runRule({
     throw err;
   }
 
-  info(`Running rule ${id} on ${item}`);
+  info('Running rule %s on %s', id, item);
   const { _id, _rev } = data;
 
   switch (rule.type) {
@@ -312,18 +237,20 @@ async function runRule({
         });
       }
 
-      // Perform the "move"
-      // Use PUT not POST incase same item it matched multiple times
-      // TODO: Content-Type??
-      // TODO: How to use tree param to do deep PUT??
-      await conn.put({
-        path: `${rule.destination}/${item}`,
-        contentType: 'application/json',
-        data: {
-          _id,
-          // _rev: data._rev
-        },
-      });
+      if (rule.destination) {
+        // Perform the "move"
+        // Use PUT not POST incase same item it matched multiple times
+        // TODO: Content-Type??
+        // TODO: How to use tree param to do deep PUT??
+        await conn.put({
+          path: join(rule.destination, item),
+          contentType: 'application/json',
+          data: {
+            _id,
+            // _rev: data._rev
+          },
+        });
+      }
       break;
 
     case 'job':
@@ -348,9 +275,9 @@ async function runRule({
   }
 
   // Record in _meta that this rule ran on this item
-  trace(`Marking rule ${id} completed`);
+  trace('Marking rule %s completed', id);
   await conn.put({
-    path: `/${_id}/_meta${META_PATH}/${id}`,
+    path: join(_id, '_meta', META_PATH, id),
     contentType: 'application/json',
     // Record what _rev was when we ran
     data: { _rev },

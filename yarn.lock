@@ -2,7 +2,7 @@
 # yarn lockfile v1
 
 
-"@oada/client@^2.4.1":
+"@oada/client@^2.3.0", "@oada/client@^2.4.1":
   version "2.4.1"
   resolved "https://registry.yarnpkg.com/@oada/client/-/client-2.4.1.tgz#de6a55c456f766034b49572915cf0a20257a260b"
   integrity sha512-HHTcxQ3g7ldXGBuevuu5Gr/Ii9PQMGtz5PK3vf3z9bgdl847QcwYSO1hgK6TXlNTjgHpIA0KFaCrsDt10D9gjQ==
@@ -16,6 +16,20 @@
     p-queue "^6.4.0"
     reconnecting-websocket "^4.4.0"
     ws "^7.2.3"
+
+"@oada/list-lib@^2.1.5":
+  version "2.1.5"
+  resolved "https://registry.yarnpkg.com/@oada/list-lib/-/list-lib-2.1.5.tgz#2457b76539968e9d0977ead6f8d1ddf508a01128"
+  integrity sha512-0zNLIEipyXR/nBCi6CT3aaRqCedfxR3POlTWE88Yw+b2x/w1JAuV0fdrkG0+UVcnQyp3ydlcdnLgpJ3FZky2WQ==
+  dependencies:
+    "@oada/client" "^2.3.0"
+    "@oada/types" "^1.2.0"
+    bluebird "^3.7.2"
+    clone-deep "^4.0.1"
+    debug "^4.3.1"
+    json-pointer "^0.6.0"
+    jsonpath-plus "^5.0.2"
+    p-queue "^6.6.2"
 
 "@oada/types@^1.2.0", "@oada/types@^1.4.1":
   version "1.4.1"
@@ -117,7 +131,7 @@ base-convert-int-array@^1.0.1:
   resolved "https://registry.yarnpkg.com/base-convert-int-array/-/base-convert-int-array-1.0.1.tgz#5b4ddbfa72d2d3b5f75dd86cd32fe3dc8e7e81fe"
   integrity sha512-NWqzaoXx8L/SS32R+WmKqnQkVXVYl2PwNJ68QV3RAlRRL1uV+yxJT66abXI1cAvqCXQTyXr7/9NN4Af90/zDVw==
 
-bluebird@^3.5.1:
+bluebird@^3.5.1, bluebird@^3.7.2:
   version "3.7.2"
   resolved "https://registry.yarnpkg.com/bluebird/-/bluebird-3.7.2.tgz#9f229c15be272454ffa973ace0dbee79a1b0c36f"
   integrity sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg==
@@ -135,6 +149,15 @@ cliui@^7.0.2:
     string-width "^4.2.0"
     strip-ansi "^6.0.0"
     wrap-ansi "^7.0.0"
+
+clone-deep@^4.0.1:
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/clone-deep/-/clone-deep-4.0.1.tgz#c19fd9bdbbf85942b4fd979c84dcf7d5f07c2387"
+  integrity sha512-neHB9xuzh/wk0dIHweyAXv2aPGZIVk3pLMe+/RNzINf17fe0OG96QroktYAUm7SM1PBnzTabaLboqqxDyMU+SQ==
+  dependencies:
+    is-plain-object "^2.0.4"
+    kind-of "^6.0.2"
+    shallow-clone "^3.0.0"
 
 color-convert@^2.0.1:
   version "2.0.1"
@@ -317,6 +340,13 @@ is-fullwidth-code-point@^3.0.0:
   resolved "https://registry.yarnpkg.com/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz#f116f8064fe90b3f7844a38997c0b75051269f1d"
   integrity sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==
 
+is-plain-object@^2.0.4:
+  version "2.0.4"
+  resolved "https://registry.yarnpkg.com/is-plain-object/-/is-plain-object-2.0.4.tgz#2c163b3fafb1b606d9d17928f05c2a1c38e07677"
+  integrity sha512-h5PpgXkWitc38BBMYawTYMWJHFZJVnBquFE57xFpjB8pJFiF6gZ+bU+WyI/yqXiFR5mdLsgYNaPe8uao6Uv9Og==
+  dependencies:
+    isobject "^3.0.1"
+
 is-regex@^1.0.5:
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/is-regex/-/is-regex-1.0.5.tgz#39d589a358bf18967f726967120b8fc1aed74eae"
@@ -338,12 +368,17 @@ isemail@^3.2.0:
   dependencies:
     punycode "2.x.x"
 
+isobject@^3.0.1:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/isobject/-/isobject-3.0.1.tgz#4e431e92b11a9731636aa1f9c8d1ccbcfdab78df"
+  integrity sha1-TkMekrEalzFjaqH5yNHMvP2reN8=
+
 isomorphic-ws@^4.0.1:
   version "4.0.1"
   resolved "https://registry.yarnpkg.com/isomorphic-ws/-/isomorphic-ws-4.0.1.tgz#55fd4cd6c5e6491e76dc125938dd863f5cd4f2dc"
   integrity sha512-BhBvN2MBpWTaSHdWRb/bwdZJ1WaehQ2L1KngkCkfLUGF0mAWAT1sQUQacEmQ0jXkFw/czDXPNQSL5u2/Krsz1w==
 
-json-pointer@^0.6.1:
+json-pointer@^0.6.0, json-pointer@^0.6.1:
   version "0.6.1"
   resolved "https://registry.yarnpkg.com/json-pointer/-/json-pointer-0.6.1.tgz#3c6caa6ac139e2599f5a1659d39852154015054d"
   integrity sha512-3OvjqKdCBvH41DLpV4iSt6v2XhZXV1bPB4OROuknvUXI7ZQNofieCPkmE26stEJ9zdQuvIxDHCuYhfgxFAAs+Q==
@@ -355,12 +390,22 @@ json-schema-traverse@^1.0.0:
   resolved "https://registry.yarnpkg.com/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz#ae7bcb3656ab77a73ba5c49bf654f38e6b6860e2"
   integrity sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==
 
+jsonpath-plus@^5.0.2:
+  version "5.0.4"
+  resolved "https://registry.yarnpkg.com/jsonpath-plus/-/jsonpath-plus-5.0.4.tgz#3b8ce2ea6904ee6c6750ed027fe8df31789b62e3"
+  integrity sha512-w3pI3PewtwIrrGRCFvTkCkKu8IrOwjsqoYRxvxuXQjPB0udEtAuBY0B6/SEztsxMmuIHVHGFQ0knVnTCPW9qYw==
+
 jsonschema8@^1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/jsonschema8/-/jsonschema8-1.1.1.tgz#ab8b1004d791d6725fd1a7e00d3dcb226871434e"
   integrity sha512-Go19De5RayYJ+38y8C3KKeoI54Qgio7BqAErwnuWt51BB9TW+/IKQbQbGVxaNCjzIwRTNGvdKqrz7HoEAkYGIw==
   dependencies:
     typescript "^3.7.5"
+
+kind-of@^6.0.2:
+  version "6.0.3"
+  resolved "https://registry.yarnpkg.com/kind-of/-/kind-of-6.0.3.tgz#07c05034a6c349fa06e24fa35aa76db4580ce4dd"
+  integrity sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==
 
 ksuid@^1.2.0:
   version "1.2.0"
@@ -522,6 +567,13 @@ secure-keys@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/secure-keys/-/secure-keys-1.0.0.tgz#f0c82d98a3b139a8776a8808050b824431087fca"
   integrity sha1-8MgtmKOxOah3aogIBQuCRDEIf8o=
+
+shallow-clone@^3.0.0:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/shallow-clone/-/shallow-clone-3.0.1.tgz#8f2981ad92531f55035b01fb230769a40e02efa3"
+  integrity sha512-/6KqX+GVUdqPuPPd2LxDDxzX6CAbjJehAAOKlNpqqUpAqPM6HeL8f+o3a+JsyGjn2lv0WY8UsTgUJjU9Ok55NA==
+  dependencies:
+    kind-of "^6.0.2"
 
 sonic-boom@^1.0.2:
   version "1.4.0"
