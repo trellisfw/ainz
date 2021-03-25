@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { join } from 'path';
+import { join, dirname } from 'path';
 
 import Bluebird from 'bluebird';
 import Ajv, { ValidateFunction } from 'ajv';
@@ -25,7 +25,6 @@ import { connect, OADAClient } from '@oada/client';
 import { ListWatch } from '@oada/list-lib';
 import Rule, { assert as assertRule } from '@oada/types/oada/ainz/rule';
 import Resource, { assert as assertResource } from '@oada/types/oada/resource';
-import type Job from '@oada/types/oada/service/job';
 
 import config from './config';
 
@@ -136,7 +135,7 @@ async function registerRule({ rule, id, conn, token }: RuleCtx) {
     const validate = ajv.compile(rule.schema);
     const payload = { rule, validate, id, conn, token };
     ruleWatches[id] = new ListWatch({
-      name: `ainz/rule-${id}`,
+      name: `ainz/rule/${id}`,
       //assertItem: validate,
       assertItem: assertResource,
       conn,
@@ -238,27 +237,30 @@ async function runRule({
       }
 
       if (rule.destination) {
+        const path = join(rule.destination, item);
+
         // Perform the "move"
-        // Use PUT not POST incase same item it matched multiple times
-        // TODO: Content-Type??
-        // TODO: How to use tree param to do deep PUT??
+        // Use PUT not POST to keep same id in both lists
         await conn.put({
-          path: join(rule.destination, item),
+          // Hack around client not working with PUTing links
+          path: dirname(path),
           // TODO: Should trees for source and destination be separate?
           tree: rule.tree as {},
-          contentType: 'application/json',
+          data: {},
+        });
+        await conn.put({
+          path: join(rule.destination, item),
           data: {
             _id,
-            // _rev: data._rev
-          },
+            _rev: rule.versioned ? 0 : undefined,
+          } as {},
         });
       }
       break;
 
     case 'job':
       // Create new job
-      // TODO: Make TS understand my rule schema better...
-      const { job } = rule as { job: Job };
+      const { job } = rule;
       // Link to resource in job config
       if (rule.pointer) {
         pointer.set(job as object, `/config${rule.pointer}`, { _id });
@@ -270,7 +272,7 @@ async function runRule({
       // Put job is service's queue
       const jobid = headers['content-location'].substr(1);
       await conn.put({
-        path: `/bookmarks/services/${job.service}/jobs/${jobid}`,
+        path: `/bookmarks/services/${job!.service}/jobs/${jobid}`,
         data: { _id: jobid },
       });
       break;

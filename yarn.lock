@@ -58,9 +58,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oada/list-lib@npm:^2.1.5":
-  version: 2.1.5
-  resolution: "@oada/list-lib@npm:2.1.5"
+"@oada/list-lib@npm:^2.1.6":
+  version: 2.1.6
+  resolution: "@oada/list-lib@npm:2.1.6"
   dependencies:
     "@oada/client": ^2.3.0
     "@oada/types": ^1.2.0
@@ -70,7 +70,7 @@ __metadata:
     json-pointer: ^0.6.0
     jsonpath-plus: ^5.0.2
     p-queue: ^6.6.2
-  checksum: 8438cc3d25faef625fc0816cc502c0c30f8fabed9c4d7688679b136456d9c417d4567da406d976f2b7164110affc90ae4393e5b180df357049820cdf82fbb2cd
+  checksum: d70a52d018a1eb6aaf0c03e4ea5e88da131a33e3d1697e8600c22e12dbcb0dde12179760428bd36b5bff60e63a40e95f49313fbb0048d36fb62b419f3182cc37
   languageName: node
   linkType: hard
 
@@ -106,7 +106,7 @@ __metadata:
   resolution: "@trellisfw/ainz@workspace:."
   dependencies:
     "@oada/client": ^2.4.1
-    "@oada/list-lib": ^2.1.5
+    "@oada/list-lib": ^2.1.6
     "@oada/types": ^1.4.1
     "@tsconfig/node12": ^1.0.7
     "@types/bluebird": ^3.5.33
