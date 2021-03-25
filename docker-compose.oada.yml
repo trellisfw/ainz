@@ -1,5 +1,5 @@
 # Thing for oadadeploy nonsense?
-serevices:
+services:
   ainz:
     extends:
       file: ./services/ainz/docker-compose.yml
