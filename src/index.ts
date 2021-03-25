@@ -122,7 +122,7 @@ const ruleWatches: { [key: string]: ListWatch } = {};
 async function unregisterRule({ id }: Omit<RuleCtx, 'rule'>) {
   info('Unregistering rule %s', id);
   const oldWatch = ruleWatches[id];
-  await oldWatch.stop();
+  await oldWatch?.stop();
   delete ruleWatches[id];
 }
 async function registerRule({ rule, id, conn, token }: RuleCtx) {
@@ -244,6 +244,8 @@ async function runRule({
         // TODO: How to use tree param to do deep PUT??
         await conn.put({
           path: join(rule.destination, item),
+          // TODO: Should trees for source and destination be separate?
+          tree: rule.tree as {},
           contentType: 'application/json',
           data: {
             _id,
