@@ -312,13 +312,17 @@ async function runRule({
 // The idea was to allow mapping extra helpers into ainz?
 const dir = join(__dirname, 'helpers');
 const files = fs.readdir(dir);
-const exts = Object.keys(require.extensions);
-const helpers = Bluebird.filter(files, (file) => exts.includes(extname(file)))
-  .map((file) => join(dir, file))
+const helpers = Bluebird.map(files, (file) => join(dir, file))
   .map(async (file) => {
-    const out = await import(file);
-    trace('Loading helpers from %s: %O', file, out);
-    return out;
+    try {
+      info('Loading helper module %s', file);
+      const out = await import(file);
+      trace('Loaded helpers from %s: %O', file, out);
+      return out;
+    } catch (err) {
+      error('Error loading helper module: %O', err);
+      return {};
+    }
   })
   .reduce(
     (a, b) => ({ ...a, ...b }),
