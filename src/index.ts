@@ -13,13 +13,15 @@
  * limitations under the License.
  */
 
-import { join, dirname } from 'path';
+import { join, dirname, extname } from 'path';
+import { promises as fs } from 'fs';
 
 import Bluebird from 'bluebird';
 import Ajv, { ValidateFunction } from 'ajv';
 import pointer from 'json-pointer';
 import PQueue from 'p-queue';
 import debug from 'debug';
+import Handlebars from 'handlebars';
 
 import { connect, OADAClient } from '@oada/client';
 import { ListWatch } from '@oada/list-lib';
@@ -27,6 +29,7 @@ import Rule, { assert as assertRule } from '@oada/types/oada/ainz/rule';
 import Resource, { assert as assertResource } from '@oada/types/oada/resource';
 
 import config from './config';
+import { Hash } from 'node:crypto';
 
 const trace = debug('ainz:trace');
 const info = debug('ainz:info');
@@ -114,7 +117,10 @@ type RuleItem = {
   item: string;
 };
 // Define "context" rules are run with
-type RuleRunCtx = RuleCtx & { validate: ValidateFunction };
+type RuleRunCtx = RuleCtx & {
+  validate: ValidateFunction;
+  move?: HandlebarsTemplateDelegate;
+};
 
 // Keep track of registered watches
 const ruleWatches: { [key: string]: ListWatch } = {};
@@ -132,8 +138,20 @@ async function registerRule({ rule, id, conn, token }: RuleCtx) {
   const queue = new PQueue({ concurrency: 1 });
 
   try {
+    // Precompile schema and destination template
     const validate = ajv.compile(rule.schema);
-    const payload = { rule, validate, id, conn, token };
+    const move = rule.destination
+      ? Handlebars.compile(rule.destination, {
+          data: false,
+          compat: false,
+          knownHelpers: await helpers,
+          knownHelpersOnly: true,
+          noEscape: true,
+          strict: true,
+        })
+      : undefined;
+
+    const payload = { rule, validate, move, id, conn, token };
     ruleWatches[id] = new ListWatch({
       name: `ainz/rule/${id}`,
       //assertItem: validate,
@@ -177,6 +195,7 @@ async function registerRule({ rule, id, conn, token }: RuleCtx) {
 async function ruleHandler({
   rule,
   validate,
+  move,
   id,
   item,
   conn,
@@ -194,7 +213,7 @@ async function ruleHandler({
     });
     data._meta = meta as Resource;
 
-    await runRule({ data, validate, item, rule, id, conn, token });
+    await runRule({ data, validate, move, item, rule, id, conn, token });
   } catch (err) {
     // Catch error so we can still try other items
     error(`Error running rule %s: %O`, id, err);
@@ -204,6 +223,7 @@ async function ruleHandler({
 async function runRule({
   data,
   validate,
+  move,
   item,
   rule,
   id,
@@ -236,8 +256,8 @@ async function runRule({
         });
       }
 
-      if (rule.destination) {
-        const path = join(rule.destination, item);
+      if (move) {
+        const path = join(move(data), item);
 
         // Perform the "move"
         // Use PUT not POST to keep same id in both lists
@@ -249,7 +269,7 @@ async function runRule({
           data: {},
         });
         await conn.put({
-          path: join(rule.destination, item),
+          path,
           data: {
             _id,
             _rev: rule.versioned ? 0 : undefined,
@@ -288,6 +308,38 @@ async function runRule({
   });
 }
 
+// Load all template helpers?
+// The idea was to allow mapping extra helpers into ainz?
+const dir = join(__dirname, 'helpers');
+const files = fs.readdir(dir);
+const exts = Object.keys(require.extensions);
+const helpers = Bluebird.filter(files, (file) => exts.includes(extname(file)))
+  .map((file) => join(dir, file))
+  .map(async (file) => {
+    const out = await import(file);
+    trace('Loading helpers from %s: %O', file, out);
+    return out;
+  })
+  .reduce(
+    (a, b) => ({ ...a, ...b }),
+    {} as Record<
+      string,
+      (_Handlebars: typeof Handlebars) => Handlebars.HelperDelegate
+    >
+  )
+  .then((helpers) => {
+    const out: Record<string, boolean> = {};
+
+    for (const [name, helper] of Object.entries(helpers)) {
+      info('Registering helper %s', name);
+      Handlebars.registerHelper(name, helper(Handlebars));
+      out[name] = true;
+    }
+
+    return out;
+  });
+
+// Run ainz for token(s)
 Bluebird.map(TOKENS, (token) => initialize(token)).catch((err) => {
   error(err);
   process.exit(1);
