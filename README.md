@@ -14,6 +14,7 @@ To add Ainz to the services run with an OADA v3 server,
 simply add the following to your `docker-compose.override.yml`:
 
 ```yaml
+services:
   ainz:
     extends:
       # Change this to wherever you cloned the ainz git
