@@ -1,5 +1,5 @@
 [![License](https://img.shields.io/github/license/trellisfw/ainz)](LICENSE)
-![Docker Pulls](https://img.shields.io/docker/pulls/trellisfw/ainz)
+[![Docker Pulls](https://img.shields.io/docker/pulls/trellisfw/ainz)][dockerhub]
 
 # Ainz
 
@@ -64,5 +64,6 @@ You can also see the corresponsing [schemas] from OADA formats.
 
 A user's rules are located at `/bookmarks/services/ainz/rules` by default.
 
+[dockerhub]: https://hub.docker.com/repository/docker/trellisfw/ainz
 [oada reference api server]: https://github.com/OADA/oada-srvc-docker
 [schemas]: https://github.com/OADA/formats/tree/master/schemas/oada/ainz
