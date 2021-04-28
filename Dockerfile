@@ -1,4 +1,4 @@
-ARG NODE_VER=14-buster
+ARG NODE_VER=16-alpine
 
 FROM node:$NODE_VER AS install
 
@@ -16,9 +16,13 @@ RUN yarn install --immutable
 
 COPY . /trellis/ainz/
 
-RUN yarn build && rm -rf node_modules
+# Build code and remove dev deps
+RUN yarn build && rm -rfv .yarn .pnp*
 
-FROM node:$NODE_VER-slim AS production
+FROM node:$NODE_VER AS production
+
+# Do not run service as root
+USER node
 
 WORKDIR /trellis/ainz
 

@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-import { join, dirname, extname } from 'path';
+import { join, dirname } from 'path';
 import { promises as fs } from 'fs';
 
 import Bluebird from 'bluebird';
@@ -29,7 +29,6 @@ import Rule, { assert as assertRule } from '@oada/types/oada/ainz/rule';
 import Resource, { assert as assertResource } from '@oada/types/oada/resource';
 
 import config from './config';
-import { Hash } from 'node:crypto';
 
 const trace = debug('ainz:trace');
 const info = debug('ainz:info');

@@ -2,13 +2,12 @@ services:
   ainz:
     build:
       context: .
+    image: trellisfw/ainz
     restart: unless-stopped
     #volumes:
-      # Additional template helpers can be mapped into the helpers dir.
-      # Ainz will load all helpers it finds at boot.
-      #- ./path/to/helper-module:/trellis/ainz/dist/helpers/helper-module
-    #networks:
-      #- http_net
+    # Additional template helpers can be mapped into the helpers dir.
+    # Ainz will load all helpers it finds at boot.
+    #- ./path/to/helper-module:/trellis/ainz/dist/helpers/helper-module
     environment:
       - NODE_TLS_REJECT_UNAUTHORIZED
       - NODE_ENV=${NODE_ENV:-development}
