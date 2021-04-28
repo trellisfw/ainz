@@ -8,8 +8,7 @@ resources from a "watch list" to another list based on rules.
 
 ## Usage
 
-Eventually Ainz images should be pushed to dockerhub,
-but for now you can run Ainz by cloning this repo.
+Ainz docker images are available from dockerhub.
 
 ### docker-compose
 
