@@ -12,10 +12,10 @@ import config from './config';
 const info = debug('ainz:add:info');
 const error = debug('ainz:add:error');
 
-const TOKENS: string[] = config.get('token').split(',');
-const DOMAIN: string = config.get('domain');
-const path: string = config.get('rules_path');
-const tree = config.get('rules_tree');
+const TOKENS = config.get('oada.token');
+const DOMAIN = config.get('oada.domain');
+const path = config.get('ainz.rules_path');
+const tree = config.get('ainz.rules_tree');
 
 const {
   // One rule per file

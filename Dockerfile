@@ -1,11 +1,13 @@
 ARG NODE_VER=16-alpine
+ARG SERVICE=trellisfw/ainz
 
 FROM node:$NODE_VER AS install
+ARG SERVICE
 
-WORKDIR /trellis/ainz
+WORKDIR /$SERVICE
 
-COPY ./.yarn /trellis/ainz/.yarn
-COPY ./package.json ./yarn.lock ./.yarnrc.yml /trellis/ainz/
+COPY ./.yarn /$SERVICE/.yarn
+COPY ./package.json ./yarn.lock ./.yarnrc.yml /$SERVICE/
 
 RUN yarn workspaces focus --all --production
 
@@ -14,20 +16,27 @@ FROM install AS build
 # Install dev deps too
 RUN yarn install --immutable
 
-COPY . /trellis/ainz/
+COPY . /$SERVICE/
 
 # Build code and remove dev deps
-RUN yarn build && rm -rfv .yarn .pnp*
+RUN yarn build --verbose && rm -rfv .yarn .pnp*
 
 FROM node:$NODE_VER AS production
+ARG SERVICE
+
+# Install needed packages
+RUN apk add --no-cache \
+    dumb-init
 
 # Do not run service as root
 USER node
 
-WORKDIR /trellis/ainz
+WORKDIR /$SERVICE
 
-COPY --from=install /trellis/ainz/ /trellis/ainz/
-COPY --from=build /trellis/ainz/ /trellis/ainz/
+COPY --from=install /$SERVICE/ /$SERVICE/
+COPY --from=build /$SERVICE/ /$SERVICE/
 
-ENTRYPOINT ["yarn", "run"]
+# Launch entrypoint with dumb-init
+# Remap SIGTERM to SIGINT https://github.com/Yelp/dumb-init#signal-rewriting
+ENTRYPOINT ["/usr/bin/dumb-init", "--rewrite", "15:2", "--", "yarn", "run"]
 CMD ["start"]

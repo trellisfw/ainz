@@ -1,6 +1,6 @@
 {
   "name": "@trellisfw/ainz",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "uservice for automating moving resources via rules",
   "main": "dist/index.js",
   "bin": {
@@ -13,29 +13,32 @@
   "author": "Alex Layton <alex@layton.in>",
   "license": "Apache-2.0",
   "dependencies": {
-    "@oada/client": "^2.4.1",
+    "@oada/client": "^2.4.2",
     "@oada/list-lib": "^2.1.6",
     "@oada/types": "^1.5.1",
-    "ajv": "^7.2.4",
+    "@tsconfig/node16": "^1.0.1",
+    "ajv": "^8.6.0",
     "bluebird": "^3.7.2",
-    "debug": "^4.3.2",
+    "convict": "^6.1.0",
+    "debug": "^4.3.1",
+    "dotenv": "^10.0.0",
     "handlebars": "^4.7.7",
     "json-pointer": "^0.6.1",
-    "luxon": "^1.26.0",
+    "luxon": "^1.27.0",
     "minimist": "^1.2.5",
     "nconf": "^0.11.2",
     "p-queue": "^6.6.2"
   },
   "devDependencies": {
-    "@tsconfig/node14": "^1.0.0",
-    "@types/bluebird": "^3.5.33",
+    "@types/bluebird": "^3.5.35",
+    "@types/convict": "^6",
     "@types/debug": "^4.1.5",
-    "@types/json-pointer": "^1.0.30",
-    "@types/luxon": "^1.26.5",
+    "@types/json-pointer": "^1.0.31",
+    "@types/luxon": "^1.27.0",
     "@types/minimist": "^1.2.1",
-    "@types/node": "^14.14.43",
-    "@yarnpkg/pnpify": "^3.0.0-rc.3",
-    "prettier": "^2.2.1",
-    "typescript": "^4.2.4"
+    "@types/node": "^14.17.3",
+    "@yarnpkg/pnpify": "^3.0.0-rc.6",
+    "prettier": "^2.3.1",
+    "typescript": "^4.3.2"
   }
 }

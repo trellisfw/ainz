@@ -45,11 +45,11 @@ type OADATree = {
 /**
  * @todo: Get token properly (multiple?)
  */
-const TOKENS: string[] = config.get('token').split(',');
-const DOMAIN: string = config.get('domain');
-const RULES_PATH: string = config.get('rules_path');
-const RULES_TREE: OADATree = config.get('rules_tree');
-const META_PATH: string = config.get('meta_path');
+const TOKENS = config.get('oada.token');
+const DOMAIN = config.get('oada.domain');
+const RULES_PATH = config.get('ainz.rules_path');
+const RULES_TREE: OADATree = config.get('ainz.rules_tree');
+const META_PATH: string = config.get('ainz.meta_path');
 
 // TODO: Handle resuming properly from where we left off
 
@@ -289,7 +289,7 @@ async function runRule({
         data: rule.job as any,
       });
       // Put job is service's queue
-      const jobid = headers['content-location'].substr(1);
+      const jobid = headers['content-location']!.substr(1);
       await conn.put({
         path: `/bookmarks/services/${job!.service}/jobs/${jobid}`,
         data: { _id: jobid },

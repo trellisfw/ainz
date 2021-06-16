@@ -1,4 +1,4 @@
-/* Copyright 2020 Qlever LLC
+/* Copyright 2021 Qlever LLC
  *
  * Licensed under the Apache License, Version 2.0 (the 'License');
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,95 @@
  * limitations under the License.
  */
 
-// TODO: Publish this to npm instead?
-import libConfig from './lib-config';
-import config from './config.defaults';
+import convict from 'convict';
+import { config as load } from 'dotenv';
 
-export default libConfig(config);
+load();
+
+const config = convict({
+  oada: {
+    domain: {
+      doc: 'OADA API domain',
+      format: String,
+      default: 'localhost',
+      env: 'DOMAIN',
+      arg: 'domain',
+    },
+    token: {
+      doc: 'OADA API token',
+      format: Array,
+      default: ['god'],
+      env: 'TOKEN',
+      arg: 'token',
+    },
+  },
+  ainz: {
+    meta_path: {
+      doc: 'JSONPath under _meta for storing our metadata',
+      format: String,
+      default: '/services/ainz/rules',
+    },
+    rules_path: {
+      doc: "OADA path to a user's rules",
+      format: String,
+      default: '/bookmarks/services/ainz/rules',
+    },
+    rules_tree: {
+      doc: 'OADA tree for rules_path',
+      format: Object,
+      default: {
+        bookmarks: {
+          _type: 'application/vnd.oada.bookmarks.1+json',
+          services: {
+            _type: 'application/vnd.oada.services.1+json',
+            _rev: 0,
+            ainz: {
+              _type: 'application/vnd.oada.service.1+json',
+              _rev: 0,
+              rules: {
+                '_type': 'application/vnd.oada.ainz.rules.1+json',
+                '_rev': 0,
+                '*': {
+                  _type: 'application/vnd.oada.ainz.rule.1+json',
+                  _rev: 0,
+                },
+              },
+            },
+          },
+        },
+      } as object,
+    },
+    // TODO: How to generalize this?? Include it in the rule??
+    list_tree: {
+      fomat: String,
+      default: {
+        _type: 'application/json',
+        _rev: 0,
+        audits: {
+          '_type': 'application/json',
+          '_rev': 0,
+          '*': {
+            _type: 'application/json',
+            _rev: 0,
+          },
+        },
+        cois: {
+          '_type': 'application/json',
+          '_rev': 0,
+          '*': {
+            _type: 'application/json',
+            _rev: 0,
+          },
+        },
+      },
+    },
+  },
+});
+
+/**
+ * Error if our options are invalid.
+ * Warn if extra options found.
+ */
+config.validate({ allowed: 'warn' });
+
+export default config;
