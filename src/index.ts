@@ -202,7 +202,7 @@ async function ruleHandler({
   data,
 }: RuleRunCtx & RuleItem) {
   trace('Handling rule %s', id);
-  trace('%O', rule);
+  trace(rule);
 
   const path = join(rule.list, item);
   try {
@@ -215,7 +215,7 @@ async function ruleHandler({
     await runRule({ data, validate, move, item, rule, id, conn, token });
   } catch (err) {
     // Catch error so we can still try other items
-    error(`Error running rule %s: %O`, id, err);
+    error(err, `Error running rule ${id}`);
   }
 }
 
@@ -228,7 +228,7 @@ async function runRule({
   id,
   conn,
 }: RuleRunCtx & RuleItem) {
-  trace(`Testing rule %s on %s`, id, item);
+  trace('Testing rule %s on %s', id, item);
   trace(data);
 
   try {
@@ -319,7 +319,7 @@ const helpers = Bluebird.map(files, (file) => join(dir, file))
       trace('Loaded helpers from %s: %O', file, out);
       return out;
     } catch (err) {
-      error('Error loading helper module: %O', err);
+      error(err, 'Error loading helper module');
       return {};
     }
   })
