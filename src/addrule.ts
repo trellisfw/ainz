@@ -1,11 +1,29 @@
-import { resolve, basename } from 'path';
+/**
+ * @license
+ * Copyright 2021 Qlever LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-import Bluebird from 'bluebird';
-import parse from 'minimist';
+/* eslint-disable no-console */
+
+import { basename, resolve } from 'node:path';
+
 import debug from 'debug';
+import parse from 'minimist';
 
-import { connect } from '@oada/client';
 import Rule, { assert as assertRule } from '@oada/types/oada/ainz/rule';
+import { connect } from '@oada/client';
 
 import config from './config';
 
@@ -20,7 +38,7 @@ const tree = config.get('ainz.rules_tree');
 const {
   // One rule per file
   _: files,
-  // token(s) for which to add rules
+  // Token(s) for which to add rules
   t,
   // OADA API domain
   d,
@@ -38,38 +56,46 @@ async function run() {
     return;
   }
 
-  const domain = d ?? DOMAIN;
-  const tokens: string[] = t ? t.split(',') : TOKENS;
-  const conns = await Bluebird.map(tokens, (token) =>
-    connect({ domain, token, connection: 'http' })
+  const domain = (d as string) ?? DOMAIN;
+  const tokens: string[] = typeof t === 'string' ? t.split(',') : TOKENS;
+  const conns = await Promise.all(
+    tokens.map(async (token) => connect({ domain, token, connection: 'http' }))
   );
+
+  async function addRule(rule: Rule, id?: string) {
+    await Promise.all(
+      conns.map(async (conn) =>
+        id
+          ? // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            conn.put({ path: `${path}/${id}`, tree, data: rule as any })
+          : // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+            conn.post({ path, tree, data: rule as any })
+      )
+    );
+  }
 
   try {
     for (const file of files) {
       info('Adding rule from file %s', file);
       try {
         // Load rule
-        const { default: out } = await import(resolve(file));
-        const rule = typeof out === 'function' ? out(flags) : out;
+        // eslint-disable-next-line no-await-in-loop
+        const { default: out } = (await import(resolve(file))) as {
+          default: unknown;
+        };
+        const rule: unknown = typeof out === 'function' ? out(flags) : out;
         assertRule(rule);
 
         // Register in OADA
+        // eslint-disable-next-line no-await-in-loop
         await addRule(rule, s && basename(file));
-      } catch (err: unknown) {
-        error('Error adding rule %s: %O', file, err);
+      } catch (cError: unknown) {
+        error('Error adding rule %s: %O', file, cError);
       }
     }
-
-    async function addRule(rule: Rule, id?: string) {
-      await Bluebird.map(conns, (conn) =>
-        id
-          ? conn.put({ path: path + '/' + id, tree, data: rule as any })
-          : conn.post({ path, tree, data: rule as any })
-      );
-    }
   } finally {
-    await Bluebird.map(conns, (conn) => conn.disconnect());
+    await Promise.all(conns.map(async (conn) => conn.disconnect()));
   }
 }
 
-run().catch(console.error);
+await run();

@@ -1,4 +1,6 @@
-/* Copyright 2021 Qlever LLC
+/**
+ * @license
+ *  Copyright 2021 Qlever LLC
  *
  * Licensed under the Apache License, Version 2.0 (the 'License');
  * you may not use this file except in compliance with the License.
@@ -12,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/* eslint-disable sonarjs/no-duplicate-string */
 
 import convict from 'convict';
 import { config as load } from 'dotenv';
@@ -49,6 +53,7 @@ const config = convict({
     rules_tree: {
       doc: 'OADA tree for rules_path',
       format: Object,
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
       default: {
         bookmarks: {
           _type: 'application/vnd.oada.bookmarks.1+json',
@@ -69,11 +74,11 @@ const config = convict({
             },
           },
         },
-      } as object,
+      } as Record<string, unknown>,
     },
     // TODO: How to generalize this?? Include it in the rule??
     list_tree: {
-      fomat: String,
+      format: Object,
       default: {
         _type: 'application/json',
         _rev: 0,
