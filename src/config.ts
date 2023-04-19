@@ -17,6 +17,8 @@
 
 /* eslint-disable sonarjs/no-duplicate-string */
 
+import type Tree from '@oada/types/oada/tree/v1.js';
+
 import convict from 'convict';
 import { config as load } from 'dotenv';
 
@@ -74,7 +76,7 @@ const config = convict({
             },
           },
         },
-      } as Record<string, unknown>,
+      } as Tree,
     },
     // TODO: How to generalize this?? Include it in the rule??
     list_tree: {

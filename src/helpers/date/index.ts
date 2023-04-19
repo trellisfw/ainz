@@ -23,7 +23,7 @@
 
 import type Handlebars from 'handlebars';
 
-import { DateTime, DateTimeOptions } from 'luxon';
+import { DateTime, type DateTimeOptions } from 'luxon';
 
 /**
  * Helper for parsing/formatting dates using luxon

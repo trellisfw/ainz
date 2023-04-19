@@ -15,27 +15,39 @@
  * limitations under the License.
  */
 
+import config from './config.js';
+
+import '@oada/pino-debug';
+
 import { dirname, join } from 'node:path';
-import { promises as fs } from 'node:fs';
-import url from 'node:url';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { readdir } from 'node:fs/promises';
 
-import config from './config';
-
-import Ajv, { ValidateFunction } from 'ajv';
-import Bluebird from 'bluebird';
+import _Ajv, { type ValidateFunction } from 'ajv';
 import Handlebars from 'handlebars';
+import { JsonPointer } from 'json-ptr';
 import PQueue from 'p-queue';
 import debug from 'debug';
-import pointer from 'json-pointer';
 
-import { OADAClient, connect } from '@oada/client';
-import Resource, { assert as assertResource } from '@oada/types/oada/resource';
-import Rule, { assert as assertRule } from '@oada/types/oada/ainz/rule';
-import { ListWatch } from '@oada/list-lib';
+import { ChangeType, ListWatch } from '@oada/list-lib';
+import { Counter, Gauge } from '@oada/lib-prom';
+import { type OADAClient, connect } from '@oada/client';
+import type Resource from '@oada/types/oada/resource.js';
+import type Rule from '@oada/types/oada/ainz/rule.js';
+import type Tree from '@oada/types/oada/tree/v1.js';
+import { assert as assertResource } from '@oada/types/oada/resource.js';
+import { assert as assertRule } from '@oada/types/oada/ainz/rule.js';
 
-const trace = debug('ainz:trace');
-const info = debug('ainz:info');
-const error = debug('ainz:error');
+// HACK: ajv types don't like esm
+// eslint-disable-next-line @typescript-eslint/naming-convention
+const Ajv = _Ajv as unknown as typeof _Ajv.default;
+
+const log = {
+  trace: debug('ainz:trace'),
+  info: debug('ainz:info'),
+  error: debug('ainz:error'),
+};
 
 // Stuff from config
 /**
@@ -44,7 +56,7 @@ const error = debug('ainz:error');
 const TOKENS = config.get('oada.token');
 const DOMAIN = config.get('oada.domain');
 const RULES_PATH = config.get('ainz.rules_path');
-const RULES_TREE: Record<string, unknown> = config.get('ainz.rules_tree');
+const RULES_TREE = config.get('ainz.rules_tree');
 const META_PATH = config.get('ainz.meta_path');
 
 // TODO: Handle resuming properly from where we left off
@@ -53,6 +65,16 @@ const ajv = new Ajv();
 
 // Shared OADA client instance
 let oada: OADAClient;
+
+const totalRules = new Gauge({
+  name: 'ainz_rules_total',
+  help: 'Total number of registered rules',
+});
+const ruleRuns = new Counter({
+  name: `ainz_rule_runs_total`,
+  help: `Total number of runs for rules`,
+  labelNames: ['rule'] as const,
+});
 
 /**
  * Start-up for a given user (token)
@@ -68,68 +90,70 @@ async function initialize(token: string) {
   // Await conn.resetCache()
 
   // TODO: Better ensure relevant paths exist
-  info('Ensuring rules resource exists');
+  log.info('Ensuring rules resource exists');
   await conn.put({
     path: RULES_PATH,
     tree: RULES_TREE,
     data: {},
   });
 
-  let rulesWatch;
+  // Watch to list of rules to register them
+  const rulesWatch = new ListWatch({
+    assertItem: assertRule,
+    conn,
+    path: RULES_PATH,
+    // Load all rules every time
+    resume: false,
+  });
   try {
-    // Watch to list of rules to register them
-    rulesWatch = new ListWatch<Rule>({
-      assertItem: assertRule,
-      name: 'ainz',
-      conn,
-      path: RULES_PATH,
-      tree: RULES_TREE,
-      // Load all rules every time
-      resume: false,
-      // Set up a watch for changes to rules
-      onItem: async (rule, id) => registerRule({ conn, token, rule, id }),
-      // Stop deleted rules
-      onRemoveItem: async (id) => unregisterRule({ conn, token, id }),
+    rulesWatch.on(ChangeType.ItemAny, async ({ item, pointer: id }) => {
+      const rule = await item;
+      await registerRule({ conn, token, rule, id });
+      totalRules.inc();
+    });
+    rulesWatch.on(ChangeType.ItemRemoved, async ({ pointer: id }) => {
+      await unregisterRule({ conn, token, id });
+      totalRules.dec();
     });
   } catch {
     // Be sure to close everything?
-    await rulesWatch?.stop();
+    await rulesWatch.stop();
   }
 }
 
-type RuleInfo = {
+interface RuleInfo {
   id: string;
   rule: Rule;
-};
-type ConnInfo = {
+}
+interface ConnInfo {
   conn: OADAClient;
   token: string;
-};
+}
 // Define "context" rules are registered with
-type RuleContext = RuleInfo & ConnInfo;
+interface RuleContext extends RuleInfo, ConnInfo {}
 // Define "thing" a rule runs on
-type RuleItem = {
+interface RuleItem {
   data: Resource;
   item: string;
-};
+}
 // Define "context" rules are run with
-type RuleRunContext = RuleContext & {
+interface RuleRunContext extends RuleContext {
   validate: ValidateFunction;
   move?: HandlebarsTemplateDelegate;
-};
+  ptr?: JsonPointer;
+}
 
 // Keep track of registered watches
-const ruleWatches: Map<string, ListWatch> = new Map();
+const ruleWatches = new Map<string, ListWatch>();
 async function unregisterRule({ id }: Omit<RuleContext, 'rule'>) {
-  info('Unregistering rule %s', id);
+  log.info('Unregistering rule %s', id);
   const oldWatch = ruleWatches.get(id);
   await oldWatch?.stop();
-  ruleWatches.delete(id);
+  return ruleWatches.delete(id);
 }
 
 async function registerRule({ rule, id, conn, token }: RuleContext) {
-  info('Registering new rule %s', id);
-  trace(rule);
+  log.trace({ rule, id }, 'Registering rule');
 
   // TODO: Fix queue to be by rule/item and not just rule
   const queue = new PQueue({ concurrency: 1 });
@@ -141,52 +165,58 @@ async function registerRule({ rule, id, conn, token }: RuleContext) {
       ? Handlebars.compile(rule.destination, {
           data: false,
           compat: false,
-          knownHelpers: await helpers,
+          knownHelpers: helpers,
           knownHelpersOnly: true,
           noEscape: true,
           strict: true,
         })
       : undefined;
+    const ptr = rule.pointer
+      ? JsonPointer.create('/config').concat(
+          JsonPointer.create(rule.pointer as string)
+        )
+      : undefined;
 
-    const payload = { rule, validate, move, id, conn, token };
-    ruleWatches.set(
-      id,
-      new ListWatch<Resource>({
-        name: `ainz/rule/${id}`,
-        // AssertItem: validate,
-        assertItem: assertResource,
-        conn,
-        path: rule.list,
-        tree: rule.tree as Record<string, unknown>,
-        itemsPath: rule.itemsPath as string,
-        onChangeItem: async (_change, item) => {
-          const path = join(rule.list, item);
-          await Bluebird.resolve(
-            // Check if this rule already ran on this resource
-            // TODO: Run again if _rev has increased?
-            conn.get({
-              path: join(path, '_meta', META_PATH, id),
-            })
-          ).catch(
-            // Catch 404 errors only
-            (cError: { status: number }) => cError?.status === 404,
-            async () => {
-              // Fetch the whole item
-              const data = await conn.get({ path: join(rule.list, item) });
-              assertResource(data);
-              await ruleHandler({ ...payload, data, item });
-            }
-          );
-        },
-        onAddItem: async (data, item) =>
-          queue.add(async () => ruleHandler({ ...payload, data, item })),
-      })
+    const payload = { rule, validate, move, ptr, id, conn, token };
+    const watch = new ListWatch({
+      name: `ainz/rule/${id}`,
+      // AssertItem: validate,
+      assertItem: assertResource,
+      conn,
+      path: rule.list,
+      itemsPath: rule.itemsPath as string,
+    });
+    watch.on(ChangeType.ItemAdded, async ({ pointer: item, item: data }) =>
+      queue.add(async () => ruleHandler({ ...payload, data: await data, item }))
     );
-  } catch (cError: unknown) {
-    error(cError);
+    watch.on(ChangeType.ItemChanged, async ({ pointer: item }) => {
+      const path = join(rule.list, item);
+      try {
+        // Check if this rule already ran on this resource
+        // TODO: Run again if _rev has increased?
+        await conn.head({
+          path: join(path, '_meta', META_PATH, id),
+        });
+      } catch (error: unknown) {
+        // @ts-expect-error stupid error stuff
+        if (error.code !== '404') {
+          // Catch 404 errors only
+          throw error;
+        }
+
+        // Fetch the whole item
+        const data = await conn.get({ path });
+        assertResource(data);
+        await queue.add(async () => ruleHandler({ ...payload, data, item }));
+      }
+    });
+    ruleWatches.set(id, watch);
+    log.info('Registered new rule %s', id);
+  } catch (error: unknown) {
+    log.error(error);
     // @ts-expect-error TODO: Fix this
-    if (cError?.response?.status !== 404) {
-      throw cError;
+    if (error?.response?.status !== 404) {
+      throw error;
     }
   }
 }
@@ -196,14 +226,14 @@ async function ruleHandler({
   rule,
   validate,
   move,
+  ptr,
   id,
   item,
   conn,
   token,
   data,
 }: RuleRunContext & RuleItem) {
-  trace('Handling rule %s', id);
-  trace(rule);
+  log.trace({ rule, id }, 'Handling rule');
 
   const path = join(rule.list, item);
   try {
@@ -213,10 +243,12 @@ async function ruleHandler({
     });
     data._meta = meta as Resource;
 
-    await runRule({ data, validate, move, item, rule, id, conn, token });
-  } catch (cError: unknown) {
+    await runRule({ data, validate, move, ptr, item, rule, id, conn, token });
+    ruleRuns.inc({ rule: id });
+    log.trace('Handled rule %s', id);
+  } catch (error: unknown) {
     // Catch error so we can still try other items
-    error(cError, `Error running rule ${id}`);
+    log.error(error, `Error running rule ${id}`);
   }
 }
 
@@ -224,37 +256,37 @@ async function runRule({
   data,
   validate,
   move,
+  ptr,
   item,
   rule,
   id,
   conn,
 }: RuleRunContext & RuleItem) {
-  trace('Testing rule %s on %s', id, item);
-  trace(data);
+  log.trace('Testing rule %s on %s', id, item);
+  log.trace(data);
 
   try {
     if (!validate(data)) {
       return;
     }
-  } catch (cError: unknown) {
-    error('schema %O', rule.schema);
-    throw cError;
+  } catch (error: unknown) {
+    log.error('schema %O', rule.schema);
+    throw error;
   }
 
-  info('Running rule %s on %s', id, item);
+  log.info('Running rule %s on %s', id, item);
   const { _id, _rev } = data;
 
   const { type, meta, tree, versioned } = rule;
   switch (type) {
-    case 'reindex':
+    case 'reindex': {
       if (meta) {
         // Add meta info to item if supplied
-        trace('Adding to _meta %O', meta);
+        log.trace(meta, 'Adding to _meta');
         await conn.put({
           path: `/${_id}/_meta`,
           contentType: 'application/json',
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          data: meta as any,
+          data: meta,
         });
       }
 
@@ -267,51 +299,47 @@ async function runRule({
           // Hack around client not working with PUTing links
           path: dirname(path),
           // TODO: Should trees for source and destination be separate?
-          tree: tree as Record<string, unknown>,
+          tree: tree as Tree,
           data: {},
         });
         await conn.put({
           path,
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           data: {
             _id,
             _rev: versioned ? 0 : undefined,
-          } as any,
+          },
         });
       }
 
       break;
+    }
 
     case 'job': {
       // Create new job
-      const { job } = rule;
+      const { job } = rule as { job: { service: string } };
       // Link to resource in job config
-      if (rule.pointer) {
-        pointer.set(job as Record<string, unknown>, `/config${rule.pointer}`, {
-          _id,
-        });
-      }
+      ptr?.set(job, { _id }, true);
 
       const { headers } = await conn.post({
         path: '/resources',
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        data: job as any,
+        data: job,
       });
       // Put job is service's queue
       const jobid = headers['content-location']!.slice(1);
       await conn.put({
-        path: `/bookmarks/services/${job!.service}/jobs/${jobid}`,
+        path: `/bookmarks/services/${job.service}/jobs/${jobid}`,
         data: { _id: jobid },
       });
       break;
     }
 
-    default:
+    default: {
       throw new Error(`Unknown rule type ${type}`);
+    }
   }
 
   // Record in _meta that this rule ran on this item
-  trace('Marking rule %s completed', id);
+  log.trace('Marking rule %s completed', id);
   await conn.put({
     path: join(_id, '_meta', META_PATH, id),
     contentType: 'application/json',
@@ -322,42 +350,33 @@ async function runRule({
 
 // Load all template helpers?
 // The idea was to allow mapping extra helpers into ainz?
-const directory = join(dirname(url.fileURLToPath(import.meta.url)), 'helpers');
-const files = await fs.readdir(directory);
-const helpers = Bluebird.resolve(files)
-  .map((file) => join(directory, file))
-  .map(async (file) => {
+const directory = join(dirname(fileURLToPath(import.meta.url)), 'helpers');
+const files = await readdir(directory);
+const requireHelper = createRequire(import.meta.url);
+const helpers: Record<string, boolean> = {};
+await Promise.all(
+  files.map(async (f) => {
+    const file = join(directory, f);
     try {
-      info('Loading helper module %s', file);
-      const out = (await import(file)) as (
-        _: typeof Handlebars
-      ) => Handlebars.HelperDelegate;
-      trace('Loaded helpers from %s: %O', file, out);
-      return out;
-    } catch (cError: unknown) {
-      error(cError, 'Error loading helper module');
-      return {};
+      log.info('Loading helper module %s', file);
+      // FIXME: Don't use require to load helpers
+      const out = requireHelper(file) as Record<
+        string,
+        (_: typeof Handlebars) => Handlebars.HelperDelegate
+      >;
+      log.trace('Loaded helpers from %s: %O', file, out);
+
+      for (const [name, helper] of Object.entries(out)) {
+        log.info('Registering helper %s', name);
+        Handlebars.registerHelper(name, helper(Handlebars));
+        // eslint-disable-next-line security/detect-object-injection
+        helpers[name] = true;
+      }
+    } catch (error: unknown) {
+      log.error(error, 'Error loading helper module');
     }
   })
-  .reduce(
-    (a, b) => ({ ...a, ...b }),
-    {} as Record<
-      string,
-      (_Handlebars: typeof Handlebars) => Handlebars.HelperDelegate
-    >
-  )
-  .then((helpers) => {
-    const out: Record<string, boolean> = {};
-
-    for (const [name, helper] of Object.entries(helpers)) {
-      info('Registering helper %s', name);
-      Handlebars.registerHelper(name, helper(Handlebars));
-      // eslint-disable-next-line security/detect-object-injection
-      out[name] = true;
-    }
-
-    return out;
-  });
+);
 
 // Run ainz for token(s)
 await Promise.all(TOKENS.map(async (token) => initialize(token)));

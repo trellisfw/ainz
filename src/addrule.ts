@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-/* eslint-disable no-console */
+/* eslint-disable no-console, no-process-exit, unicorn/no-process-exit */
 
 import { basename, resolve } from 'node:path';
 
 import debug from 'debug';
 import parse from 'minimist';
 
-import Rule, { assert as assertRule } from '@oada/types/oada/ainz/rule';
+import type Rule from '@oada/types/oada/ainz/rule.js';
+import { assert as assertRule } from '@oada/types/oada/ainz/rule.js';
 import { connect } from '@oada/client';
 
-import config from './config';
+import config from './config.js';
 
 const info = debug('ainz:add:info');
 const error = debug('ainz:add:error');
@@ -47,55 +48,49 @@ const {
   ...flags
 } = parse(process.argv.slice(2), { boolean: ['s'] });
 
-async function run() {
-  if (files.length === 0) {
-    // Print usage info
-    console.log('ainz add [-t token] [-d domain] [-s] FILES...');
-    console.log('Add all the rules from files FILES');
+if (files.length === 0) {
+  // Print usage info
+  console.log('ainz add [-t token] [-d domain] [-s] FILES...');
+  console.log('Add all the rules from files FILES');
 
-    return;
-  }
-
-  const domain = (d as string) ?? DOMAIN;
-  const tokens: string[] = typeof t === 'string' ? t.split(',') : TOKENS;
-  const conns = await Promise.all(
-    tokens.map(async (token) => connect({ domain, token, connection: 'http' }))
-  );
-
-  async function addRule(rule: Rule, id?: string) {
-    await Promise.all(
-      conns.map(async (conn) =>
-        id
-          ? // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            conn.put({ path: `${path}/${id}`, tree, data: rule as any })
-          : // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-            conn.post({ path, tree, data: rule as any })
-      )
-    );
-  }
-
-  try {
-    for (const file of files) {
-      info('Adding rule from file %s', file);
-      try {
-        // Load rule
-        // eslint-disable-next-line no-await-in-loop
-        const { default: out } = (await import(resolve(file))) as {
-          default: unknown;
-        };
-        const rule: unknown = typeof out === 'function' ? out(flags) : out;
-        assertRule(rule);
-
-        // Register in OADA
-        // eslint-disable-next-line no-await-in-loop
-        await addRule(rule, s && basename(file));
-      } catch (cError: unknown) {
-        error('Error adding rule %s: %O', file, cError);
-      }
-    }
-  } finally {
-    await Promise.all(conns.map(async (conn) => conn.disconnect()));
-  }
+  process.exit(0);
 }
 
-await run();
+const domain = (d as string) ?? DOMAIN;
+const tokens: string[] = typeof t === 'string' ? t.split(',') : TOKENS;
+const conns = await Promise.all(
+  tokens.map(async (token) => connect({ domain, token, connection: 'http' }))
+);
+
+async function addRule(rule: Rule, id?: string) {
+  await Promise.all(
+    conns.map(async (conn) =>
+      id
+        ? // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+          conn.put({ path: `${path}/${id}`, tree, data: rule as any })
+        : // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any
+          conn.post({ path, tree, data: rule as any })
+    )
+  );
+}
+
+try {
+  for await (const file of files) {
+    info('Adding rule from file %s', file);
+    try {
+      // Load rule
+      const { default: out } = (await import(resolve(file))) as {
+        default: unknown;
+      };
+      const rule: unknown = typeof out === 'function' ? out(flags) : out;
+      assertRule(rule);
+
+      // Register in OADA
+      await addRule(rule, s ? basename(file) : undefined);
+    } catch (cError: unknown) {
+      error({ error: cError, file }, 'Error adding rule');
+    }
+  }
+} finally {
+  await Promise.all(conns.map(async (conn) => conn.disconnect()));
+}
